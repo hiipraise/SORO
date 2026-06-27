@@ -1,0 +1,46 @@
+# Logs
+*.log
+soro-server.log
+
+# OS / Editor
+.DS_Store
+.idea/
+.vscode/
+
+# Node / Frontend (generic)
+node_modules/
+dist/
+build/
+*.local
+
+# Vite / TS / tooling caches
+.vite/
+.cache/
+*.tsbuildinfo
+coverage/
+htmlcov/
+coverage.xml
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+.eggs/
+.env/
+.env.*
+.venv/
+venv/
+ENV/
+env/
+
+# FastAPI / local env (keep example)
+# (allow listing .env.example via negation below)
+!.env.example
+
+# Environment files (allow example)
+!.env.example

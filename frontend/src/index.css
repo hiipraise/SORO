@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+/* ─── Tailwind Theme Extension for SORO ─── */
+@theme {
+  /* Brand Palette */
+  --color-soro-deep: #0D1117;
+  --color-soro-surface: #161B22;
+  --color-soro-earth: #8B5E3C;
+  --color-soro-ember: #E8834A;
+  --color-soro-gold: #F5C842;
+  --color-soro-mist: #E8EDF2;
+  --color-soro-fade: #6B7280;
+  --color-soro-safe: #1A2B1F;
+  --color-soro-danger: #C0392B;
+
+  /* Typography */
+  --font-display: "Fraunces", serif;
+  --font-body: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+
+  /* Spacing (4px base) */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-12: 48px;
+  --spacing-16: 64px;
+  --spacing-24: 96px;
+}
+
+/* ─── Base Styles ─── */
+@layer base {
+  html {
+    font-family: var(--font-body);
+    background-color: var(--color-soro-deep);
+    color: var(--color-soro-mist);
+    scroll-behavior: smooth;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    min-height: 100dvh;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    line-height: 1.2;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--color-soro-deep);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-soro-fade);
+    border-radius: 3px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-soro-earth);
+  }
+}
+
+/* ─── Utility Classes ─── */
+@layer utilities {
+  /* Gradient text */
+  .text-gradient {
+    background: linear-gradient(135deg, var(--color-soro-ember), var(--color-soro-gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Glass morphism card */
+  .glass-card {
+    background: rgba(22, 27, 34, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(139, 94, 60, 0.15);
+  }
+
+  /* Subtle glow */
+  .glow-ember {
+    box-shadow: 0 0 20px rgba(232, 131, 74, 0.15), 0 0 60px rgba(232, 131, 74, 0.05);
+  }
+  .glow-gold {
+    box-shadow: 0 0 20px rgba(245, 200, 66, 0.15), 0 0 60px rgba(245, 200, 66, 0.05);
+  }
+
+  /* Ember button */
+  .btn-ember {
+    background: linear-gradient(135deg, var(--color-soro-ember), #d4733e);
+    color: white;
+    font-weight: 600;
+    transition: all 0.2s ease;
+  }
+  .btn-ember:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 20px rgba(232, 131, 74, 0.3);
+  }
+  .btn-ember:active {
+    transform: translateY(0);
+  }
+
+  /* Crisis button — always red, always urgent */
+  .btn-crisis {
+    background: var(--color-soro-danger);
+    color: white;
+    font-weight: 700;
+    animation: pulse-crisis 2s infinite;
+  }
+  @keyframes pulse-crisis {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.4); }
+    50% { box-shadow: 0 0 0 12px rgba(192, 57, 43, 0); }
+  }
+
+  /* Mood orb pulse animation */
+  @keyframes orb-pulse {
+    0%, 100% { transform: scale(1); opacity: 0.8; }
+    50% { transform: scale(1.05); opacity: 1; }
+  }
+  .animate-orb-pulse {
+    animation: orb-pulse 3s ease-in-out infinite;
+  }
+
+  /* Page transition */
+  .page-enter {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  .page-enter-active {
+    opacity: 1;
+    transform: translateY(0);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+  }
+
+  /* Streak flame */
+  .streak-flame {
+    filter: drop-shadow(0 0 8px rgba(245, 200, 66, 0.5));
+  }
+
+  /* Celebration confetti */
+  .confetti-piece {
+    position: fixed;
+    width: 10px;
+    height: 10px;
+    animation: confetti-fall 3s ease-out forwards;
+  }
+  @keyframes confetti-fall {
+    0% { transform: translateY(-100vh) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+  }
+}
