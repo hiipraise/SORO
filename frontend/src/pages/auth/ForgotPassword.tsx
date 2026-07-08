@@ -95,7 +95,6 @@ export default function ForgotPassword() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 leftIcon={<Mail size={16} />}
-                error={error}
               />
 
               <Button

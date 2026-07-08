@@ -6,7 +6,8 @@ import PageTransition from '@/components/layout/PageTransition'
 import Button from '@/components/shared/Button'
 import Spinner from '@/components/shared/Spinner'
 import { useCheckinStore, MOOD_LABELS, MOOD_COLORS, type MoodState } from '@/stores/checkinStore'
-import { getReflection } from '@/lib/api'
+import { getReflection, createJournalEntry } from '@/lib/api'
+import { useToastStore } from '@/components/shared/Toast'
 
 const OFFLINE_MESSAGE =
   "You're offline — your words are saved. We'll reflect when you're back."
@@ -28,8 +29,10 @@ export default function Reflect() {
   const { currentMood, ventText } = useCheckinStore()
   const [reflection, setReflection] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
+  const addToast = useToastStore((s) => s.addToast)
 
   useEffect(() => {
     if (!currentMood) {
@@ -67,9 +70,23 @@ export default function Reflect() {
     }
   }
 
-  const handleSaveToJournal = () => {
-    // TODO: Auto-save reflection as journal entry
-    navigate('/app/journal')
+  const handleSaveToJournal = async () => {
+    if (!reflection) return
+
+    setIsSaving(true)
+    try {
+      await createJournalEntry({
+        title: `Reflection — ${MOOD_LABELS[currentMood as MoodState] || 'Check-in'}`,
+        content: reflection,
+        mood_tag: currentMood || undefined,
+      })
+      addToast('Reflection saved to journal', 'success')
+      navigate('/app/journal')
+    } catch {
+      addToast('Could not save. Check your connection and try again.', 'error')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   if (!currentMood) return null
@@ -153,6 +170,7 @@ export default function Reflect() {
             fullWidth
             size="lg"
             variant="primary"
+            isLoading={isSaving}
             leftIcon={<BookOpen size={18} />}
           >
             Save to journal

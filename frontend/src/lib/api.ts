@@ -342,3 +342,14 @@ export async function updateSettings(data: Record<string, unknown>) {
 export async function deleteAccount() {
   return api('/account', { method: 'DELETE' })
 }
+
+export async function changePassword(currentPassword: string, newPassword: string) {
+  return api('/auth/change-password', {
+    method: 'POST',
+    body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
+  })
+}
+
+export async function exportAccountData() {
+  return api('/account/export')
+}

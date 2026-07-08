@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, EmailStr
 
 from app.models.user import User
+from app.api.deps import get_current_user_id
 from app.core.security import (
     hash_password,
     verify_password,
@@ -33,6 +34,11 @@ class ForgotPasswordRequest(BaseModel):
 class ResetPasswordRequest(BaseModel):
     token: str
     password: str
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
 
 
 @router.post("/signup")
@@ -117,6 +123,31 @@ async def refresh_token(token_data: dict = Depends(lambda: None)):
     """Refresh an existing token. (Placeholder)"""
     # TODO: Implement refresh with proper dependency injection
     return {"message": "Token refresh endpoint"}
+
+
+@router.post("/change-password")
+async def change_password(
+    req: ChangePasswordRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Change password for authenticated user."""
+    user = await User.get(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if not user.password_hash:
+        raise HTTPException(status_code=400, detail="No password set for this account")
+
+    if not verify_password(req.current_password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Current password is incorrect")
+
+    if len(req.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+
+    user.password_hash = hash_password(req.new_password)
+    await user.save()
+
+    return {"message": "Password changed successfully"}
 
 
 @router.post("/logout")

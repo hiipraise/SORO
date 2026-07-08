@@ -9,6 +9,8 @@ class User(Document):
     password_hash: Optional[str] = None
     is_anonymous: bool = False
     session_token: Optional[str] = None
+    notification_anchor: bool = True
+    notification_reminder: bool = True
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 

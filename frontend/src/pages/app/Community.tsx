@@ -116,13 +116,15 @@ export default function Community() {
   }
 
   const handleReact = async (postId: string, reaction: string) => {
+    const label = REACTION_LABELS[reaction]?.label || 'Reaction'
     try {
       const data = await reactToPost(postId, reaction) as any
       setPosts(posts.map((p) =>
         p.id === postId ? { ...p, reactions: data.reactions } : p,
       ))
+      addToast(`${label} — thank you for showing up`, 'success')
     } catch {
-      // Silent fail
+      addToast('Could not save reaction. Try again.', 'error')
     }
   }
 

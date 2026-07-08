@@ -1,30 +1,144 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   User,
   Bell,
-  Shield,
   Download,
   Trash2,
   ChevronRight,
   Heart,
   LogOut,
+  Mail,
+  Lock,
 } from 'lucide-react'
 import PageTransition from '@/components/layout/PageTransition'
 import Button from '@/components/shared/Button'
+import Input from '@/components/shared/Input'
 import Modal from '@/components/shared/Modal'
 import { useAuthStore } from '@/stores/authStore'
-import { logout } from '@/lib/api'
+import { useToastStore } from '@/components/shared/Toast'
+import { logout, updateSettings, changePassword, exportAccountData, getSettings } from '@/lib/api'
 
 export default function Settings() {
-  const { user, authMode, logout: storeLogout } = useAuthStore()
+  const { user, authMode, logout: storeLogout, setUser } = useAuthStore()
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [showLogoutModal, setShowLogoutModal] = useState(false)
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [showPasswordModal, setShowPasswordModal] = useState(false)
+  const [email, setEmail] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [isSavingEmail, setIsSavingEmail] = useState(false)
+  const [isSavingPassword, setIsSavingPassword] = useState(false)
+  const [emailError, setEmailError] = useState('')
+  const [passwordError, setPasswordError] = useState('')
   const [notifyAnchor, setNotifyAnchor] = useState(true)
   const [notifyReminder, setNotifyReminder] = useState(true)
+  const [notifySaving, setNotifySaving] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+  const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null)
+  const addToast = useToastStore((s) => s.addToast)
+
+  // Load notification preferences on mount
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const data = await getSettings() as { notification_anchor?: boolean; notification_reminder?: boolean }
+        if (!cancelled) {
+          if (data.notification_anchor !== undefined) setNotifyAnchor(data.notification_anchor)
+          if (data.notification_reminder !== undefined) setNotifyReminder(data.notification_reminder)
+        }
+      } catch {
+        // Use defaults — no action needed
+      }
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  const handleNotifyToggle = async (key: 'anchor' | 'reminder', value: boolean) => {
+    if (key === 'anchor') setNotifyAnchor(value)
+    else setNotifyReminder(value)
+
+    setNotifySaving(key)
+    try {
+      await updateSettings({
+        notification_anchor: key === 'anchor' ? value : notifyAnchor,
+        notification_reminder: key === 'reminder' ? value : notifyReminder,
+      })
+      addToast(
+        key === 'anchor' ? 'Daily anchor notifications updated' : 'Check-in reminders updated',
+        'success',
+      )
+    } catch {
+      // Revert on failure
+      if (key === 'anchor') setNotifyAnchor(!value)
+      else setNotifyReminder(!value)
+      addToast('Failed to save notification setting', 'error')
+    } finally {
+      setNotifySaving(null)
+    }
+  }
+
+  // Listen for PWA install prompt
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+    }
+    window.addEventListener('beforeinstallprompt', handler)
+    return () => window.removeEventListener('beforeinstallprompt', handler)
+  }, [])
+
+  const handleInstall = async () => {
+    if (deferredPrompt) {
+      ;(deferredPrompt as Event & { prompt: () => Promise<void> }).prompt()
+      const result = await (deferredPrompt as Event & { userChoice: Promise<{ outcome: string }> }).userChoice
+      if (result.outcome === 'accepted') {
+        addToast('SORO installed!', 'success')
+      }
+      setDeferredPrompt(null)
+    } else {
+      addToast('Open this page in your browser and use the "Add to Home Screen" option.', 'info')
+    }
+  }
+
+  const handleExport = async () => {
+    setIsExporting(true)
+    try {
+      const data = await exportAccountData() as Record<string, unknown>
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `soro-data-${new Date().toISOString().split('T')[0]}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      addToast('Data exported successfully', 'success')
+    } catch {
+      addToast('Failed to export data', 'error')
+    } finally {
+      setIsExporting(false)
+    }
+  }
 
   const handleLogout = async () => {
-    await logout()
-    storeLogout()
-    window.location.href = '/'
+    setIsLoggingOut(true)
+    try {
+      await logout()
+      storeLogout()
+      addToast("See you soon. You're signed out.", 'info')
+      setTimeout(() => {
+        window.location.href = '/'
+      }, 500)
+    } catch {
+      addToast('Failed to sign out', 'error')
+      setIsLoggingOut(false)
+      setShowLogoutModal(false)
+    }
   }
 
   const handleDeleteAccount = () => {
@@ -89,27 +203,43 @@ export default function Settings() {
 
             {authMode !== 'anonymous' && (
               <>
-                <div className="p-4 flex items-center justify-between">
+                <button
+                  onClick={() => {
+                    setEmail(user?.email || '')
+                    setEmailError('')
+                    setShowEmailModal(true)
+                  }}
+                  className="w-full p-4 flex items-center justify-between hover:bg-soro-earth/5 transition-colors text-left"
+                >
                   <div className="flex items-center gap-3">
-                    <User size={18} className="text-soro-fade" />
+                    <Mail size={18} className="text-soro-fade" />
                     <div>
                       <p className="text-sm text-soro-mist">Change email</p>
                       <p className="text-xs text-soro-fade">Update your email address</p>
                     </div>
                   </div>
-                  <ChevronRight size={18} className="text-soro-fade" />
-                </div>
+                  <ChevronRight size={18} className="text-soro-fade shrink-0" />
+                </button>
 
-                <div className="p-4 flex items-center justify-between">
+                <button
+                  onClick={() => {
+                    setCurrentPassword('')
+                    setNewPassword('')
+                    setConfirmPassword('')
+                    setPasswordError('')
+                    setShowPasswordModal(true)
+                  }}
+                  className="w-full p-4 flex items-center justify-between hover:bg-soro-earth/5 transition-colors text-left"
+                >
                   <div className="flex items-center gap-3">
-                    <Shield size={18} className="text-soro-fade" />
+                    <Lock size={18} className="text-soro-fade" />
                     <div>
                       <p className="text-sm text-soro-mist">Change password</p>
                       <p className="text-xs text-soro-fade">Update your password</p>
                     </div>
                   </div>
-                  <ChevronRight size={18} className="text-soro-fade" />
-                </div>
+                  <ChevronRight size={18} className="text-soro-fade shrink-0" />
+                </button>
               </>
             )}
           </div>
@@ -132,8 +262,9 @@ export default function Settings() {
               <input
                 type="checkbox"
                 checked={notifyAnchor}
-                onChange={(e) => setNotifyAnchor(e.target.checked)}
-                className="w-5 h-5 rounded border-soro-earth/30 bg-soro-surface text-soro-ember focus:ring-soro-ember/40"
+                disabled={notifySaving === 'anchor'}
+                onChange={(e) => handleNotifyToggle('anchor', e.target.checked)}
+                className="w-5 h-5 rounded border-soro-earth/30 bg-soro-surface text-soro-ember focus:ring-soro-ember/40 disabled:opacity-50"
               />
             </label>
 
@@ -148,8 +279,9 @@ export default function Settings() {
               <input
                 type="checkbox"
                 checked={notifyReminder}
-                onChange={(e) => setNotifyReminder(e.target.checked)}
-                className="w-5 h-5 rounded border-soro-earth/30 bg-soro-surface text-soro-ember focus:ring-soro-ember/40"
+                disabled={notifySaving === 'reminder'}
+                onChange={(e) => handleNotifyToggle('reminder', e.target.checked)}
+                className="w-5 h-5 rounded border-soro-earth/30 bg-soro-surface text-soro-ember focus:ring-soro-ember/40 disabled:opacity-50"
               />
             </label>
           </div>
@@ -169,7 +301,7 @@ export default function Settings() {
                   <p className="text-xs text-soro-fade">Download all your entries</p>
                 </div>
               </div>
-              <Button variant="ghost" size="sm">
+              <Button variant="ghost" size="sm" isLoading={isExporting} onClick={handleExport}>
                 Export
               </Button>
             </div>
@@ -205,7 +337,7 @@ export default function Settings() {
             <p className="text-xs text-soro-fade mb-3">
               For the best experience, install SORO as an app on your device.
             </p>
-            <Button variant="secondary" size="sm">
+            <Button variant="secondary" size="sm" onClick={handleInstall}>
               Install app
             </Button>
           </div>
@@ -238,12 +370,195 @@ export default function Settings() {
             fullWidth
             size="lg"
             leftIcon={<LogOut size={18} />}
-            onClick={handleLogout}
+            onClick={() => setShowLogoutModal(true)}
           >
             Log out
           </Button>
         </div>
       </div>
+
+      {/* Change Email Modal */}
+      <Modal
+        isOpen={showEmailModal}
+        onClose={() => setShowEmailModal(false)}
+        title="Change email"
+      >
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault()
+            setEmailError('')
+
+            if (!email || !email.includes('@')) {
+              setEmailError('Please enter a valid email address')
+              return
+            }
+
+            setIsSavingEmail(true)
+            try {
+              await updateSettings({ email })
+              if (user) {
+                setUser({ ...user, email }, useAuthStore.getState().token!, 'email')
+              }
+              addToast('Email updated successfully', 'success')
+              setShowEmailModal(false)
+            } catch (err: any) {
+              setEmailError(err.message || 'Failed to update email')
+            } finally {
+              setIsSavingEmail(false)
+            }
+          }}
+          className="space-y-4 pt-1"
+        >
+          <Input
+            label="New email address"
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+
+          {emailError && (
+            <p className="text-xs text-soro-danger bg-soro-danger/5 rounded-lg px-3 py-2">
+              {emailError}
+            </p>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              fullWidth
+              onClick={() => setShowEmailModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              fullWidth
+              isLoading={isSavingEmail}
+            >
+              Save
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Change Password Modal */}
+      <Modal
+        isOpen={showPasswordModal}
+        onClose={() => setShowPasswordModal(false)}
+        title="Change password"
+      >
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault()
+            setPasswordError('')
+
+            if (!currentPassword) {
+              setPasswordError('Please enter your current password')
+              return
+            }
+            if (!newPassword || newPassword.length < 6) {
+              setPasswordError('New password must be at least 6 characters')
+              return
+            }
+            if (newPassword !== confirmPassword) {
+              setPasswordError('New passwords do not match')
+              return
+            }
+
+            setIsSavingPassword(true)
+            try {
+              await changePassword(currentPassword, newPassword)
+              addToast('Password changed successfully', 'success')
+              setShowPasswordModal(false)
+            } catch (err: any) {
+              setPasswordError(err.message || 'Failed to change password')
+            } finally {
+              setIsSavingPassword(false)
+            }
+          }}
+          className="space-y-4 pt-1"
+        >
+          <Input
+            label="Current password"
+            type="password"
+            placeholder="Enter current password"
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+          />
+
+          <Input
+            label="New password"
+            type="password"
+            placeholder="At least 6 characters"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+          />
+
+          <Input
+            label="Confirm new password"
+            type="password"
+            placeholder="Re-enter new password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
+
+          {passwordError && (
+            <p className="text-xs text-soro-danger bg-soro-danger/5 rounded-lg px-3 py-2">
+              {passwordError}
+            </p>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              fullWidth
+              onClick={() => setShowPasswordModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              fullWidth
+              isLoading={isSavingPassword}
+            >
+              Save
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Logout Confirmation Modal */}
+      <Modal
+        isOpen={showLogoutModal}
+        onClose={() => setShowLogoutModal(false)}
+        title="Sign out?"
+      >
+        <p className="text-sm text-soro-fade mb-6">
+          You'll need to sign in again to access your data. Your entries and
+          check-ins will still be saved.
+        </p>
+        <div className="flex gap-3">
+          <Button
+            variant="ghost"
+            fullWidth
+            disabled={isLoggingOut}
+            onClick={() => setShowLogoutModal(false)}
+          >
+            Stay signed in
+          </Button>
+          <Button
+            variant="secondary"
+            fullWidth
+            isLoading={isLoggingOut}
+            onClick={handleLogout}
+          >
+            Sign out
+          </Button>
+        </div>
+      </Modal>
 
       {/* Delete Account Modal */}
       <Modal

@@ -2,7 +2,6 @@ import { Outlet } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import BottomNav from './BottomNav'
 import TopBar from './TopBar'
-import ToastContainer from '@/components/shared/Toast'
 import CrisisButton from '@/components/ui/CrisisButton'
 
 export default function AppShell() {
@@ -23,9 +22,6 @@ export default function AppShell() {
 
       {/* Mobile Bottom Nav */}
       <BottomNav />
-
-      {/* Toast Notifications */}
-      <ToastContainer />
 
       {/* Crisis Button — always visible */}
       <CrisisButton />

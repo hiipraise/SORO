@@ -1,34 +1,40 @@
-import { motion } from 'framer-motion'
-import type { MoodState } from '@/stores/checkinStore'
-import { MOOD_LABELS, MOOD_COLORS } from '@/stores/checkinStore'
+import { motion } from "framer-motion";
+import type { MoodState } from "@/stores/checkinStore";
+import { MOOD_LABELS, MOOD_COLORS } from "@/stores/checkinStore";
 
 interface MoodOrbProps {
-  selected: MoodState | null
-  onSelect: (mood: MoodState) => void
-  size?: 'sm' | 'lg'
+  selected: MoodState | null;
+  onSelect: (mood: MoodState) => void;
+  size?: "sm" | "lg";
 }
 
-const moods: MoodState[] = ['at_limit', 'managing', 'mixed', 'okay', 'good']
+const moods: MoodState[] = ["at_limit", "managing", "mixed", "okay", "good"];
 
 const sizeStyles: Record<string, string> = {
-  sm: 'w-14 h-14 text-[10px]',
-  lg: 'w-24 h-24 text-xs',
-}
+  sm: "w-14 h-14 text-[10px]",
+  lg: "w-24 h-24 text-xs",
+};
 
 const moodIcons: Record<MoodState, string> = {
-  at_limit: '\u{1F4A5}', // 💥
-  managing: '\u{1F34B}', // 🍋
-  mixed: '\u{1F937}', // 🤷
-  okay: '\u{270C}', // ✌
-  good: '\u{2600}', // ☀
-}
+  at_limit: "\u{1F4A5}", // 💥
+  managing: "\u{1F34B}", // 🍋
+  mixed: "\u{1F937}", // 🤷
+  okay: "\u{270C}", // ✌
+  good: "\u{2600}", // ☀
+};
 
-export default function MoodOrb({ selected, onSelect, size = 'lg' }: MoodOrbProps) {
+export default function MoodOrb({
+  selected,
+  onSelect,
+  size = "lg",
+}: MoodOrbProps) {
   return (
-    <div className={`flex items-center justify-center gap-3 md:gap-4 flex-wrap`}>
+    <div
+      className={`flex items-center justify-center gap-3 md:gap-4 flex-wrap`}
+    >
       {moods.map((mood) => {
-        const isSelected = selected === mood
-        const color = MOOD_COLORS[mood]
+        const isSelected = selected === mood;
+        const color = MOOD_COLORS[mood];
 
         return (
           <motion.button
@@ -37,19 +43,21 @@ export default function MoodOrb({ selected, onSelect, size = 'lg' }: MoodOrbProp
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.95 }}
             className={`
-              relative flex flex-col items-center gap-1.5 rounded-2xl
-              transition-all duration-300 cursor-pointer
-              ${sizeStyles[size]}
-              ${isSelected
-                ? 'ring-2 ring-offset-2 ring-offset-soro-deep shadow-lg'
-                : 'opacity-60 hover:opacity-90'
-              }
-            `}
+  relative flex flex-col items-center justify-center gap-1.5 rounded-2xl
+  px-2 text-center
+  transition-all duration-300 cursor-pointer
+  ${sizeStyles[size]}
+  ${
+    isSelected
+      ? "ring-2 ring-offset-2 ring-offset-soro-deep shadow-lg"
+      : "opacity-60 hover:opacity-90"
+  }
+`}
             style={{
               backgroundColor: `${color}15`,
               borderColor: isSelected ? color : `${color}30`,
               borderWidth: 2,
-              boxShadow: isSelected ? `0 0 30px ${color}30` : 'none',
+              boxShadow: isSelected ? `0 0 30px ${color}30` : "none",
             }}
           >
             {/* Orb glow */}
@@ -72,7 +80,7 @@ export default function MoodOrb({ selected, onSelect, size = 'lg' }: MoodOrbProp
               className="font-medium text-center leading-tight relative z-10"
               style={{
                 color: isSelected ? color : undefined,
-                fontSize: size === 'lg' ? '10px' : '8px',
+                fontSize: size === "lg" ? "10px" : "8px",
               }}
             >
               {MOOD_LABELS[mood]}
@@ -89,8 +97,8 @@ export default function MoodOrb({ selected, onSelect, size = 'lg' }: MoodOrbProp
               />
             )}
           </motion.button>
-        )
+        );
       })}
     </div>
-  )
+  );
 }

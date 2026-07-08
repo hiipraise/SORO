@@ -8,6 +8,7 @@ import Button from '@/components/shared/Button'
 import MoodOrb from '@/components/ui/MoodOrb'
 import { useCheckinStore, type MoodState } from '@/stores/checkinStore'
 import { createJournalEntry, updateJournalEntry, getJournalEntry } from '@/lib/api'
+import { useToastStore } from '@/components/shared/Toast'
 
 export default function JournalEditor() {
   const { id } = useParams()
@@ -63,13 +64,19 @@ export default function JournalEditor() {
         await updateJournalEntry(id!, { title, content, mood_tag: moodTag || undefined })
       }
       setLastSaved(new Date())
+      return true
     } catch {
-      // Save locally if offline
-      setLastSaved(new Date())
+      return false
     } finally {
       setIsSaving(false)
     }
   }, [title, content, moodTag, isNew, id])
+
+  // Save before navigating away
+  const handleBack = useCallback(async () => {
+    await save()
+    navigate('/app/journal')
+  }, [save, navigate])
 
   useEffect(() => {
     if (autoSaveRef.current) {
@@ -81,10 +88,18 @@ export default function JournalEditor() {
     }
   }, [title, content, moodTag])
 
-  const handleSaveNow = () => {
+  const handleSaveNow = async () => {
     if (autoSaveRef.current) clearTimeout(autoSaveRef.current)
-    save()
+    const result = await save()
+    if (result === true) {
+      addToast('Journal entry saved', 'success')
+      navigate('/app/journal')
+    } else if (result === false) {
+      addToast('Failed to save journal entry', 'error')
+    }
   }
+
+  const addToast = useToastStore((s) => s.addToast)
 
   const handleLockToggle = () => {
     setIsLocked(!isLocked)
@@ -96,7 +111,7 @@ export default function JournalEditor() {
         {/* Header */}
         <div className="flex items-center justify-between">
           <button
-            onClick={() => navigate('/app/journal')}
+            onClick={handleBack}
             className="flex items-center gap-2 text-sm text-soro-fade hover:text-soro-mist transition-colors"
           >
             <ArrowLeft size={18} />
@@ -136,7 +151,7 @@ export default function JournalEditor() {
           <label className="text-xs font-medium text-soro-fade uppercase tracking-wider mb-2 block">
             How you were feeling
           </label>
-          <MoodOrb selected={moodTag} onSelect={setMoodTag} size="sm" />
+          <MoodOrb selected={moodTag} onSelect={setMoodTag} size="lg" />
         </div>
 
         {/* Title */}

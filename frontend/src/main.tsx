@@ -11,6 +11,7 @@ const Signup = lazy(() => import('@/pages/auth/Signup'))
 const Login = lazy(() => import('@/pages/auth/Login'))
 const ForgotPassword = lazy(() => import('@/pages/auth/ForgotPassword'))
 const About = lazy(() => import('@/pages/About'))
+import ToastContainer from '@/components/shared/Toast'
 const Home = lazy(() => import('@/pages/app/Home'))
 const Checkin = lazy(() => import('@/pages/app/Checkin'))
 const Reflect = lazy(() => import('@/pages/app/Reflect'))
@@ -48,6 +49,7 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        <ToastContainer />
         <Suspense fallback={<Spinner />}>
           <Routes>
             {/* Public routes */}

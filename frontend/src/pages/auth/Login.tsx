@@ -5,6 +5,7 @@ import { Eye, EyeOff, ArrowRight } from 'lucide-react'
 import Input from '@/components/shared/Input'
 import Button from '@/components/shared/Button'
 import { useAuthStore } from '@/stores/authStore'
+import { useToastStore } from '@/components/shared/Toast'
 import { login } from '@/lib/api'
 
 export default function Login() {
@@ -16,6 +17,7 @@ export default function Login() {
   const navigate = useNavigate()
   const setUser = useAuthStore((s) => s.setUser)
   const setOnboardingComplete = useAuthStore((s) => s.setOnboardingComplete)
+  const addToast = useToastStore((s) => s.addToast)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -31,6 +33,7 @@ export default function Login() {
       const data = await login(email, password)
       setUser(data.user as any, data.token, 'email')
       setOnboardingComplete()
+      addToast('Welcome back!', 'success')
       navigate('/app/home')
     } catch (err: any) {
       setError(err.message || 'Failed to log in')
@@ -71,7 +74,6 @@ export default function Login() {
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            error={error}
           />
 
           <div className="relative">
