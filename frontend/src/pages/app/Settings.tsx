@@ -48,7 +48,7 @@ export default function Settings() {
   const notifyMutation = useMutation({
     mutationFn: (data: { notification_anchor: boolean; notification_reminder: boolean }) =>
       updateSettings(data as Record<string, unknown>),
-    onSuccess: (_data, variables) => {
+    onSuccess: (_data) => {
       queryClient.invalidateQueries({ queryKey: ['settings'] })
       addToast('Notification preferences updated', 'success')
     },

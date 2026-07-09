@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Send, Users, LogOut, UserPlus } from 'lucide-react'
@@ -40,13 +40,16 @@ const TOPIC_EMOJIS: Record<string, string> = {
 }
 
 function getRelativeTime(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
+  // If the date has no timezone offset, treat it as UTC (backend naive datetimes)
+  const hasTz = /[+-]\d{2}:\d{2}$|Z$/i.test(dateStr)
+  const date = new Date(hasTz ? dateStr : dateStr + 'Z')
+  const diff = Date.now() - date.getTime()
   const hours = Math.floor(diff / (1000 * 60 * 60))
   const days = Math.floor(hours / 24)
   if (hours < 1) return 'Just now'
   if (hours < 24) return `${hours}h ago`
   if (days < 30) return `${days}d ago`
-  return new Date(dateStr).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })
+  return date.toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })
 }
 
 export default function CircleDetail() {
@@ -59,7 +62,7 @@ export default function CircleDetail() {
   const { addToast } = useToastStore()
   const queryClient = useQueryClient()
 
-  const { data: circle, isLoading, refetch: refetchCircle } = useQuery<CircleData>({
+  const { data: circle, isLoading } = useQuery<CircleData>({
     queryKey: ['circle', id],
     queryFn: () => getCircle(id!) as Promise<CircleData>,
     enabled: !!id,

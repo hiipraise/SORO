@@ -25,14 +25,6 @@ import CheckinHeatmap from '@/components/ui/CheckinHeatmap'
 import { useCheckinStore, MOOD_LABELS } from '@/stores/checkinStore'
 import { getMoodInsights } from '@/lib/api'
 
-const moodScore: Record<string, number> = {
-  at_limit: 1,
-  managing: 2,
-  mixed: 3,
-  okay: 4,
-  good: 5,
-}
-
 function buildDayLabels(days: number): string[] {
   const labels: string[] = []
   for (let i = 0; i < days; i++) {
@@ -87,7 +79,7 @@ export default function Insights() {
   const [financeLoading, setFinanceLoading] = useState(true)
 
   // Fetch mood insights from server
-  const { data: moodResponse, isLoading: moodLoading, isError: moodError } = useQuery({
+  const { data: moodResponse } = useQuery({
     queryKey: ['mood-insights'],
     queryFn: getMoodInsights,
   })

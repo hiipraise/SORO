@@ -8,6 +8,13 @@ from app.models.circle_message import CircleMessage
 from app.api.deps import get_current_user_id, get_or_404
 from app.core.rate_limit import limiter
 
+
+def _fmt_dt(dt: datetime) -> str:
+    """Serialize a datetime to ISO-8601, always including timezone offset."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
+
 router = APIRouter(prefix="/circles", tags=["circles"])
 
 VALID_TOPICS = [
@@ -75,15 +82,14 @@ async def list_circles(
             "is_full": c.is_full,
             "has_joined": any(m["user_id"] == user_id for m in c.members),
             "members": [
-                {
-                    "display_name": m["display_name"],
-                    "joined_at": m["joined_at"].isoformat() if isinstance(m["joined_at"], datetime) else m["joined_at"],
-                }
-                for m in c.members
-            ],
-            "created_at": c.created_at.isoformat(),
+                {            "display_name": m["display_name"],
+            "joined_at": _fmt_dt(m["joined_at"]) if isinstance(m["joined_at"], datetime) else m["joined_at"],
         }
-        for c in circles
+        for m in c.members
+    ],
+    "created_at": _fmt_dt(c.created_at),
+}
+for c in circles
     ]
 
 
@@ -104,14 +110,13 @@ async def get_circle(
         "is_full": circle.is_full,
         "has_joined": any(m["user_id"] == user_id for m in circle.members),
         "members": [
-            {
-                "display_name": m["display_name"],
-                "joined_at": m["joined_at"].isoformat() if isinstance(m["joined_at"], datetime) else m["joined_at"],
-            }
-            for m in circle.members
-        ],
-        "created_at": circle.created_at.isoformat(),
-    }
+            {            "display_name": m["display_name"],
+            "joined_at": _fmt_dt(m["joined_at"]) if isinstance(m["joined_at"], datetime) else m["joined_at"],
+        }
+        for m in circle.members
+    ],
+    "created_at": _fmt_dt(circle.created_at),
+}
 
 
 @router.post("/")
@@ -152,14 +157,13 @@ async def create_circle(
         "has_joined": True,
         "display_name": display_name,
         "members": [
-            {
-                "display_name": m["display_name"],
-                "joined_at": m["joined_at"].isoformat() if isinstance(m["joined_at"], datetime) else m["joined_at"],
-            }
-            for m in circle.members
-        ],
-        "created_at": circle.created_at.isoformat(),
-    }
+            {            "display_name": m["display_name"],
+            "joined_at": _fmt_dt(m["joined_at"]) if isinstance(m["joined_at"], datetime) else m["joined_at"],
+        }
+        for m in circle.members
+    ],
+    "created_at": _fmt_dt(circle.created_at),
+}
 
 
 @router.post("/{circle_id}/join")
@@ -244,7 +248,7 @@ async def list_messages(
             "id": str(msg.id),
             "display_name": msg.display_name,
             "content": msg.content,
-            "created_at": msg.created_at.isoformat(),
+            "created_at": _fmt_dt(msg.created_at),
         }
         for msg in messages
     ]
@@ -284,5 +288,5 @@ async def send_message(
         "id": str(message.id),
         "display_name": message.display_name,
         "content": message.content,
-        "created_at": message.created_at.isoformat(),
+        "created_at": _fmt_dt(message.created_at),
     }

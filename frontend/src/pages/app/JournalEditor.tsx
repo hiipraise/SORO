@@ -33,7 +33,7 @@ export default function JournalEditor() {
   }, [currentMood, isNew])
 
   // Load existing entry and sync into local form state
-  const { data: entryData, isLoading, isError: loadError, refetch: loadEntry } = useQuery({
+  const { data: entryData, isError: loadError, refetch: loadEntry } = useQuery({
     queryKey: ['journal-entry', id],
     queryFn: () => getJournalEntry(id!) as Promise<any>,
     enabled: !isNew && !!id,

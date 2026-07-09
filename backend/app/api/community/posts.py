@@ -8,6 +8,13 @@ from app.api.deps import get_current_user_id, get_or_404
 from app.core.rate_limit import limiter
 from app.core.crisis import detect_crisis
 
+
+def _fmt_dt(dt: datetime) -> str:
+    """Serialize a datetime to ISO-8601, always including timezone offset."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.isoformat()
+
 router = APIRouter(prefix="/posts", tags=["community"])
 
 VALID_TOPICS = [
@@ -33,7 +40,7 @@ async def list_posts(
     """Get approved community posts, optionally filtered by topic."""
     query = CommunityPost.find(
         CommunityPost.is_approved == True,
-        CommunityPost.expires_at > datetime.now(timezone.utc),
+        CommunityPost.expires_at > datetime.now(timezone.utc).replace(tzinfo=None),
     )
 
     if topic and topic in VALID_TOPICS:
@@ -47,8 +54,8 @@ async def list_posts(
             "content": p.content,
             "topic_tag": p.topic_tag,
             "reactions": p.reactions,
-            "created_at": p.created_at.isoformat(),
-            "expires_at": p.expires_at.isoformat(),
+            "created_at": _fmt_dt(p.created_at),
+            "expires_at": _fmt_dt(p.expires_at),
         }
         for p in posts
     ]
@@ -96,8 +103,8 @@ async def create_post(
         "approved": is_approved,
         "crisis": False,
         "reactions": post.reactions,
-        "created_at": post.created_at.isoformat(),
-        "expires_at": post.expires_at.isoformat(),
+        "created_at": _fmt_dt(post.created_at),
+        "expires_at": _fmt_dt(post.expires_at),
     }
 
 
@@ -122,7 +129,7 @@ async def react_to_post(
     if not post.is_approved:
         raise HTTPException(status_code=404, detail="Post not found")
 
-    if post.expires_at < datetime.now(timezone.utc):
+    if post.expires_at < datetime.now(timezone.utc).replace(tzinfo=None):
         raise HTTPException(status_code=410, detail="Post has expired")
 
     # Atomic $inc on the nested reactions field — no read-modify-write race

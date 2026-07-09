@@ -195,7 +195,7 @@ export default function AnchorCard({
               <span>{copied ? 'Copied!' : 'Copy to clipboard'}</span>
             </button>
 
-            {navigator.share && (
+            {typeof navigator.share !== 'undefined' && (
               <button
                 onClick={() => {
                   setShareOpen(false)
