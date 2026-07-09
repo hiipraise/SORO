@@ -1,8 +1,16 @@
-import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
-import { ArrowRight, Shield, Brain, LineChart, Heart, Sparkles, Users } from 'lucide-react'
-import InstallPrompt from '@/components/pwa/InstallPrompt'
-import CrisisButton from '@/components/ui/CrisisButton'
+import { Link } from "react-router-dom";
+import { motion } from "framer-motion";
+import {
+  ArrowRight,
+  Shield,
+  Brain,
+  LineChart,
+  Heart,
+  Sparkles,
+  Users,
+} from "lucide-react";
+import InstallPrompt from "@/components/pwa/InstallPrompt";
+import CrisisButton from "@/components/ui/CrisisButton";
 
 const problemStatements = [
   {
@@ -17,35 +25,48 @@ const problemStatements = [
     icon: Heart,
     text: "Therapy is ₦10,000–₦30,000 per session. Most people can't afford to eat that and heal.",
   },
-]
+];
 
 const howItWorks = [
   {
-    step: '01',
-    title: 'Speak it',
-    description: 'Check in daily. Say how you dey — in your own words.',
+    step: "01",
+    title: "Speak it",
+    description: "Check in daily. Say how you dey — in your own words.",
     icon: Sparkles,
   },
   {
-    step: '02',
-    title: 'Face it',
-    description: 'Get a warm AI reflection built for the Nigerian experience.',
+    step: "02",
+    title: "Face it",
+    description: "Get a warm AI reflection built for the Nigerian experience.",
     icon: Brain,
   },
   {
-    step: '03',
-    title: 'Rise',
-    description: 'Track your mood, build financial goals, and grow — daily.',
+    step: "03",
+    title: "Rise",
+    description: "Track your mood, build financial goals, and grow — daily.",
     icon: ArrowRight,
   },
-]
+];
 
 const audienceCards = [
-  { title: 'Student', description: 'Juggling school, family pressure, and uncertainty about tomorrow.' },
-  { title: 'Young Grad', description: 'First job, low pay, high expectations from everyone.' },
-  { title: 'In Debt', description: 'Small money, big problems. Trying to find a way out.' },
-  { title: 'Grieving', description: 'Lost someone. Lost direction. Need space to process.' },
-]
+  {
+    title: "Student",
+    description:
+      "Juggling school, family pressure, and uncertainty about tomorrow.",
+  },
+  {
+    title: "Young Grad",
+    description: "First job, low pay, high expectations from everyone.",
+  },
+  {
+    title: "In Debt",
+    description: "Small money, big problems. Trying to find a way out.",
+  },
+  {
+    title: "Grieving",
+    description: "Lost someone. Lost direction. Need space to process.",
+  },
+];
 
 export default function Landing() {
   return (
@@ -88,13 +109,8 @@ export default function Landing() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: 'easeOut' }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
             >
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-soro-safe/20 text-green-400 text-xs font-medium mb-6">
-                <Heart size={12} />
-                Free. Anonymous. Built for you.
-              </div>
-
               <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold text-soro-mist leading-tight mb-6">
                 You dey carry
                 <br />
@@ -311,7 +327,7 @@ export default function Landing() {
               transition={{ duration: 0.5 }}
             >
               <h2 className="text-2xl md:text-4xl font-display font-bold text-soro-mist mb-4">
-                E go better —{' '}
+                E go better —{" "}
                 <span className="text-gradient">but first, say it</span>
               </h2>
               <p className="text-soro-fade text-base mb-8 max-w-lg mx-auto">
@@ -356,5 +372,5 @@ export default function Landing() {
       {/* Crisis Button */}
       <CrisisButton />
     </div>
-  )
+  );
 }
