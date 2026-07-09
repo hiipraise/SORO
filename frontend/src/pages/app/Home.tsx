@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { PenLine, BookOpen, BarChart3, Anchor, ArrowRight, Sparkles } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import PageTransition from '@/components/layout/PageTransition'
 import CheckinStreak from '@/components/ui/CheckinStreak'
 import AnchorCard from '@/components/ui/AnchorCard'
 import AdSlot from '@/components/ui/AdSlot'
 import { useCheckinStore } from '@/stores/checkinStore'
-import { getTodayAnchor } from '@/lib/api'
+import { getTodayAnchor, getMoodInsights, getJournalEntries, getReflections } from '@/lib/api'
 
 const quickActions = [
   {
@@ -43,6 +44,19 @@ const quickActions = [
     bg: 'bg-soro-earth/10',
   },
 ]
+
+function formatRelativeTime(dateStr: string): string {
+  const now = Date.now()
+  const date = new Date(dateStr).getTime()
+  const diff = now - date
+  const hours = Math.floor(diff / (1000 * 60 * 60))
+  const days = Math.floor(hours / 24)
+
+  if (hours < 1) return 'Just now'
+  if (hours < 24) return `${hours}h ago`
+  if (days < 7) return `${days}d ago`
+  return new Date(dateStr).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })
+}
 
 const DAY_ANCHORS: Record<string, { content: string; source: string; type: string }> = {
   Monday: {
@@ -83,33 +97,77 @@ const DAY_ANCHORS: Record<string, { content: string; source: string; type: strin
 }
 
 export default function Home() {
-  const { streak, lastCheckinDate, checkinHistory } = useCheckinStore()
+  const { lastCheckinDate: localLastDate, checkinHistory } = useCheckinStore()
   const [localAnchor, setLocalAnchor] = useState<{ content: string; source: string; type: string } | null>(null)
-  const [anchorLoading, setAnchorLoading] = useState(true)
 
   const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as keyof typeof DAY_ANCHORS
 
+  // Fetch server insights for streak & latest check-in
+  const { data: moodData, isLoading: insightsLoading } = useQuery({
+    queryKey: ['mood-insights'],
+    queryFn: getMoodInsights,
+  })
+
+  // Fetch today's anchor (fallback to day-based anchor on error)
+  const { data: serverAnchor, isLoading: anchorLoading } = useQuery({
+    queryKey: ['today-anchor'],
+    queryFn: getTodayAnchor,
+  })
+
+  // Fetch latest journal entry
+  const { data: entriesData, isLoading: journalLoading } = useQuery({
+    queryKey: ['journal-entries'],
+    queryFn: getJournalEntries,
+  })
+
+  // Fetch latest reflection
+  const { data: reflectionsData, isLoading: reflectionLoading } = useQuery({
+    queryKey: ['reflections'],
+    queryFn: getReflections,
+  })
+
+  const anyMoodData = moodData as any
+  const anyEntries = entriesData as any[]
+  const anyReflections = reflectionsData as any[]
+
+  // Server-sourced data
+  const serverStreak = anyMoodData?.stats?.streak ?? null
+  const serverLastDate = anyMoodData?.data?.length > 0
+    ? anyMoodData.data[anyMoodData.data.length - 1].date.split('T')[0]
+    : null
+  const serverLatestMood = anyMoodData?.data?.length > 0
+    ? { mood: anyMoodData.data[anyMoodData.data.length - 1].mood_state, date: anyMoodData.data[anyMoodData.data.length - 1].date }
+    : null
+
+  // Use server data when available, fall back to local store
+  const effectiveStreak = serverStreak ?? (insightsLoading ? useCheckinStore.getState().streak : 0)
+  const effectiveLastDate = serverLastDate ?? (insightsLoading ? localLastDate : null)
+  const effectiveLatestMood = serverLatestMood ?? (insightsLoading && checkinHistory.length > 0
+    ? { mood: checkinHistory[checkinHistory.length - 1].mood, date: checkinHistory[checkinHistory.length - 1].date }
+    : null
+  )
+
+  // Set anchor from server data or fall back to day-based anchor
   useEffect(() => {
-    async function loadAnchor() {
-      try {
-        const data = await getTodayAnchor() as any
-        if (data && data.content) {
-          setLocalAnchor(data)
-        } else {
-          setLocalAnchor(DAY_ANCHORS[dayOfWeek])
-        }
-      } catch {
+    if (!anchorLoading && !localAnchor) {
+      if (serverAnchor && (serverAnchor as any)?.content) {
+        setLocalAnchor(serverAnchor as any)
+      } else {
         setLocalAnchor(DAY_ANCHORS[dayOfWeek])
-      } finally {
-        setAnchorLoading(false)
       }
     }
-    loadAnchor()
-  }, [dayOfWeek])
+  }, [serverAnchor, anchorLoading, dayOfWeek, localAnchor])
+
+  // Latest entry & reflection
+  const latestEntry = anyEntries?.length > 0
+    ? [...anyEntries].sort(
+        (a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      )[0]
+    : null
+  const latestReflection = anyReflections?.length > 0 ? anyReflections[0] : null
 
   const today = new Date().toISOString().split('T')[0]
-  const checkedInToday = lastCheckinDate === today
-  const latestMood = checkinHistory.length > 0 ? checkinHistory[checkinHistory.length - 1] : null
+  const checkedInToday = effectiveLastDate === today
 
   const getGreeting = () => {
     const hour = new Date().getHours()
@@ -133,10 +191,10 @@ export default function Home() {
 
         {/* Streak + Check-in Status */}
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <CheckinStreak streak={streak} lastCheckinDate={lastCheckinDate} />
-          {latestMood && checkedInToday && (
+          <CheckinStreak streak={effectiveStreak} lastCheckinDate={effectiveLastDate} />
+          {effectiveLatestMood && checkedInToday && !insightsLoading && (
             <span className="text-xs text-soro-fade bg-soro-surface px-3 py-1.5 rounded-full border border-soro-earth/10">
-              Last mood: {latestMood.mood.replace('_', ' ')}
+              Last mood: {effectiveLatestMood.mood.replace('_', ' ')}
             </span>
           )}
         </div>
@@ -176,15 +234,22 @@ export default function Home() {
             </div>
             <h2 className="text-lg font-display font-semibold text-soro-mist mb-1">
               You checked in today
-            </h2>
-            <p className="text-sm text-soro-fade mb-4">
+            </h2>            <p className="text-sm text-soro-fade mb-4">
               That's strength. Come back tomorrow.
             </p>
+            {!reflectionLoading && latestReflection && (
+              <div className="text-left bg-soro-surface/50 rounded-xl p-4 mb-4 border border-soro-earth/10">
+                <p className="text-xs text-soro-fade/60 mb-1.5 font-medium">Your last reflection</p>
+                <p className="text-sm text-soro-mist leading-relaxed line-clamp-3">
+                  {latestReflection.content}
+                </p>
+              </div>
+            )}
             <Link
-              to="/app/reflect"
+              to={latestReflection ? '/app/journal' : '/app/checkin'}
               className="text-sm text-soro-ember hover:underline font-medium inline-flex items-center gap-1"
             >
-              View your last reflection
+              {latestReflection ? 'Write in your journal' : 'Check in to get a reflection'}
               <ArrowRight size={14} />
             </Link>
           </motion.div>
@@ -257,18 +322,40 @@ export default function Home() {
               View all <ArrowRight size={12} />
             </Link>
           </div>
-          <Link
-            to="/app/journal"
-            className="block glass-card rounded-2xl p-5 border-soro-earth/10 hover:border-soro-ember/20 transition-all"
-          >
-            <div className="flex items-center gap-3">
-              <BookOpen size={20} className="text-soro-fade" />
-              <p className="text-sm text-soro-fade">
-                No journal entries yet.{' '}
-                <span className="text-soro-ember hover:underline">Write your first entry</span>
-              </p>
+          {journalLoading ? (
+            <div className="glass-card rounded-2xl p-5 animate-pulse">
+              <div className="h-4 bg-soro-surface rounded w-3/4 mb-2" />
+              <div className="h-3 bg-soro-surface rounded w-1/2" />
             </div>
-          </Link>
+          ) : latestEntry ? (
+            <Link
+              to={`/app/journal/${latestEntry.id}`}
+              className="block glass-card rounded-2xl p-5 border-soro-earth/10 hover:border-soro-ember/20 transition-all group"
+            >
+              <h3 className="text-sm font-semibold text-soro-mist mb-1 group-hover:text-soro-ember transition-colors truncate">
+                {latestEntry.title || 'Untitled'}
+              </h3>
+              <p className="text-sm text-soro-fade line-clamp-2 mb-2">
+                {latestEntry.content}
+              </p>
+              <span className="text-xs text-soro-fade/60">
+                {formatRelativeTime(latestEntry.created_at)}
+              </span>
+            </Link>
+          ) : (
+            <Link
+              to="/app/journal/new"
+              className="block glass-card rounded-2xl p-5 border-soro-earth/10 hover:border-soro-ember/20 transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <BookOpen size={20} className="text-soro-fade" />
+                <p className="text-sm text-soro-fade">
+                  No journal entries yet.{' '}
+                  <span className="text-soro-ember hover:underline">Write your first entry</span>
+                </p>
+              </div>
+            </Link>
+          )}
         </div>
 
         {/* Ad Slot */}

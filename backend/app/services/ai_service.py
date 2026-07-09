@@ -1,5 +1,6 @@
 import httpx
 from app.core.config import get_settings
+from app.core.crisis import detect_crisis, crisis_response
 
 settings = get_settings()
 
@@ -15,29 +16,15 @@ If any hint of self-harm or crisis:
 You are a witness, not a therapist.
 Max response: 150 words."""
 
-CRISIS_KEYWORDS = [
-    "kill myself", "end it", "suicide", "don't want to live",
-    "not worth living", "want to die", "hurt myself",
-    "end my life", "take my life", "better off dead",
-]
 
-
-def _detect_crisis(text: str) -> bool:
-    return any(kw in text.lower() for kw in CRISIS_KEYWORDS)
-
-
-def _crisis_response() -> str:
-    return (
-        "Before we go further — are you safe right now?\n\n"
-        "If you're in crisis, please reach out:\n"
-        f"{settings.crisis_organization}: {settings.crisis_number}"
-    )
+def _crisis_response_local() -> str:
+    return crisis_response(settings.crisis_organization, settings.crisis_number)
 
 
 def _fallback_response(mood: str, vent: str) -> str:
     """Local fallback when Groq is unavailable."""
-    if _detect_crisis(vent):
-        return _crisis_response()
+    if detect_crisis(vent):
+        return _crisis_response_local()
 
     fallbacks = {
         "at_limit": (
@@ -80,8 +67,8 @@ async def get_reflection(mood: str, vent: str = "") -> tuple[str, str]:
     """
     full_text = f"{mood} {vent}".strip()
 
-    if _detect_crisis(full_text):
-        return _crisis_response(), "crisis-detection"
+    if detect_crisis(full_text):
+        return _crisis_response_local(), "crisis-detection"
 
     if not settings.groq_api_key:
         return _fallback_response(mood, vent), "fallback"
@@ -113,5 +100,5 @@ async def get_reflection(mood: str, vent: str = "") -> tuple[str, str]:
                 # Groq rate limit or error — fall back
                 return _fallback_response(mood, vent), "fallback"
 
-    except (httpx.TimeoutException, httpx.RequestError, Exception):
+    except Exception:
         return _fallback_response(mood, vent), "fallback"

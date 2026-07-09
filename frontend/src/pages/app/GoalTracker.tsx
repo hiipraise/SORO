@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Plus, ArrowLeft, Target, Zap, Clock, Sparkles, CheckCircle } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import PageTransition from '@/components/layout/PageTransition'
 import Button from '@/components/shared/Button'
 import Input from '@/components/shared/Input'
@@ -10,7 +11,7 @@ import EmptyState from '@/components/shared/EmptyState'
 import ProgressBar from '@/components/shared/ProgressBar'
 import AdSlot from '@/components/ui/AdSlot'
 import CelebrationModal from '@/components/ui/CelebrationModal'
-import { getGoals, createGoal, updateGoal } from '@/lib/api'
+import { getGoals, createGoal, addGoalProgress } from '@/lib/api'
 import { useToastStore } from '@/components/shared/Toast'
 
 interface GoalData {
@@ -40,69 +41,71 @@ const defaultForm = {
 
 export default function GoalTracker() {
   const navigate = useNavigate()
-  const [goals, setGoals] = useState<GoalData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [showCelebration, setShowCelebration] = useState(false)
   const [celebratedGoal, setCelebratedGoal] = useState('')
   const [form, setForm] = useState(defaultForm)
-  const [saving, setSaving] = useState(false)
   const [progressForm, setProgressForm] = useState<{ id: string; amount: number } | null>(null)
+  const [progressing, setProgressing] = useState<Set<string>>(new Set())
   const { addToast } = useToastStore()
+  const queryClient = useQueryClient()
 
-  const loadGoals = useCallback(async () => {
-    try {
-      const data = await getGoals() as GoalData[]
-      setGoals(data)
-    } catch {
-      // Empty
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+  const { data: goals = [], isLoading } = useQuery<GoalData[]>({
+    queryKey: ['goals'],
+    queryFn: getGoals as () => Promise<GoalData[]>,
+  })
 
-  useEffect(() => { loadGoals() }, [loadGoals])
+  const createMutation = useMutation({
+    mutationFn: (data: typeof defaultForm) => createGoal(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['goals'] })
+      setShowModal(false)
+      setForm(defaultForm)
+      addToast('Goal created!', 'success')
+    },
+    onError: () => {
+      addToast('Failed to create goal', 'error')
+    },
+  })
 
-  const handleCreate = async () => {
+  const progressMutation = useMutation({
+    mutationFn: ({ goalId, amount }: { goalId: string; amount: number }) => addGoalProgress(goalId, amount),
+    onSuccess: (data: any, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['goals'] })
+      setProgressForm(null)
+      const goal = goals.find((g) => g.id === variables.goalId)
+      if (data.status === 'completed') {
+        setCelebratedGoal(goal?.title ?? '')
+        setShowCelebration(true)
+      } else {
+        addToast(`₦${variables.amount.toLocaleString()} added to "${data.title}"`, 'success')
+      }
+    },
+    onError: () => {
+      addToast('Failed to update progress', 'error')
+    },
+  })
+
+  const handleCreate = () => {
     if (!form.title || form.target_amount <= 0) {
       addToast('Please fill in the title and target amount', 'error')
       return
     }
-    setSaving(true)
-    try {
-      const data = await createGoal(form)
-      setGoals([data as GoalData, ...goals])
-      setShowModal(false)
-      setForm(defaultForm)
-      addToast('Goal created!', 'success')
-    } catch {
-      addToast('Failed to create goal', 'error')
-    } finally {
-      setSaving(false)
-    }
+    createMutation.mutate(form)
   }
 
   const handleProgressUpdate = async (goalId: string, amount: number) => {
-    const goal = goals.find((g) => g.id === goalId)
-    if (!goal) return
-
-    const newAmount = goal.current_amount + amount
-    const wasCompleted = newAmount >= goal.target_amount
-
-    try {
-      const updated = await updateGoal(goalId, { current_amount: newAmount })
-      setGoals(goals.map((g) => (g.id === goalId ? (updated as GoalData) : g)))
-      setProgressForm(null)
-
-      if (wasCompleted) {
-        setCelebratedGoal(goal.title)
-        setShowCelebration(true)
-      } else {
-        addToast(`₦${amount.toLocaleString()} added to "${goal.title}"`, 'success')
-      }
-    } catch {
-      addToast('Failed to update progress', 'error')
-    }
+    if (!amount || amount <= 0) return
+    setProgressing((prev) => new Set(prev).add(goalId))
+    progressMutation.mutate({ goalId, amount }, {
+      onSettled: () => {
+        setProgressing((prev) => {
+          const next = new Set(prev)
+          next.delete(goalId)
+          return next
+        })
+      },
+    })
   }
 
   const getPriorityLabel = (p: string) => {
@@ -250,7 +253,8 @@ export default function GoalTracker() {
                         <Button
                           size="sm"
                           onClick={() => handleProgressUpdate(goal.id, progressForm.amount)}
-                          disabled={!progressForm.amount || progressForm.amount <= 0}
+                          disabled={!progressForm.amount || progressForm.amount <= 0 || progressing.has(goal.id)}
+                          isLoading={progressing.has(goal.id)}
                         >
                           Add
                         </Button>
@@ -362,9 +366,9 @@ export default function GoalTracker() {
               <Button variant="ghost" fullWidth onClick={() => { setShowModal(false); setForm(defaultForm) }}>
                 Cancel
               </Button>
-              <Button fullWidth onClick={handleCreate} isLoading={saving}>
-                Create goal
-              </Button>
+            <Button fullWidth onClick={handleCreate} isLoading={createMutation.isPending}>
+              Create goal
+            </Button>
             </div>
           </div>
         </Modal>
@@ -374,7 +378,7 @@ export default function GoalTracker() {
           isOpen={showCelebration}
           onClose={() => {
             setShowCelebration(false)
-            loadGoals() // Refresh to update status
+            queryClient.invalidateQueries({ queryKey: ['goals'] })
           }}
           title={celebratedGoal}
           emoji="💰"
@@ -383,5 +387,3 @@ export default function GoalTracker() {
     </PageTransition>
   )
 }
-
-

@@ -3,10 +3,16 @@ import Sidebar from './Sidebar'
 import BottomNav from './BottomNav'
 import TopBar from './TopBar'
 import CrisisButton from '@/components/ui/CrisisButton'
+import OfflineBanner from '@/components/pwa/OfflineBanner'
+import UpdatePrompt from '@/components/pwa/UpdatePrompt'
 
 export default function AppShell() {
   return (
     <div className="min-h-screen bg-soro-deep">
+      {/* PWA — online/offline state & update prompt */}
+      <OfflineBanner />
+      <UpdatePrompt />
+
       {/* Desktop Sidebar */}
       <Sidebar />
 

@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { Phone, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
-
-const CRISIS_NUMBER = '08111909909'
+import { CRISIS_NUMBER, CRISIS_ORGANIZATION } from '@/lib/crisis'
 
 export default function CrisisButton() {
   const [expanded, setExpanded] = useState(false)
@@ -40,7 +39,7 @@ export default function CrisisButton() {
               Call {CRISIS_NUMBER}
             </a>
             <p className="text-[10px] text-soro-fade/60 mt-2 text-center">
-              Mental Health Awareness Nigeria Initiative
+              {CRISIS_ORGANIZATION}
             </p>
           </motion.div>
         )}

@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import {
   MessageSquare, Shield, AlertTriangle,
 } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import PageTransition from '@/components/layout/PageTransition'
 import Button from '@/components/shared/Button'
 import Textarea from '@/components/shared/Textarea'
@@ -49,29 +50,39 @@ function getRelativeTime(dateStr: string): string {
 }
 
 export default function Community() {
-  const [posts, setPosts] = useState<PostData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [selectedTopic, setSelectedTopic] = useState('')
   const [showPostModal, setShowPostModal] = useState(false)
   const [postContent, setPostContent] = useState('')
   const [postTopic, setPostTopic] = useState('')
-  const [isSubmitting, setIsSubmitting] = useState(false)
   const [crisisWarning, setCrisisWarning] = useState('')
   const { addToast } = useToastStore()
+  const queryClient = useQueryClient()
 
-  const loadPosts = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const data = await getCommunityPosts(selectedTopic || undefined) as PostData[]
-      setPosts(data)
-    } catch {
-      // Empty
-    } finally {
-      setIsLoading(false)
-    }
-  }, [selectedTopic])
+  const { data: posts = [], isLoading } = useQuery<PostData[]>({
+    queryKey: ['community-posts', selectedTopic],
+    queryFn: () => getCommunityPosts(selectedTopic || undefined) as Promise<PostData[]>,
+  })
 
-  useEffect(() => { loadPosts() }, [loadPosts])
+  const createPostMutation = useMutation({
+    mutationFn: (data: { content: string; topic_tag?: string }) => createCommunityPost(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['community-posts'] })
+    },
+    onError: () => {
+      addToast('Failed to share. Please try again.', 'error')
+    },
+  })
+
+  const reactMutation = useMutation({
+    mutationFn: ({ postId, reaction }: { postId: string; reaction: string }) =>
+      reactToPost(postId, reaction),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['community-posts'] })
+    },
+    onError: () => {
+      addToast('Could not save reaction. Try again.', 'error')
+    },
+  })
 
   const handleCreatePost = async () => {
     if (!postContent.trim()) {
@@ -79,11 +90,10 @@ export default function Community() {
       return
     }
 
-    setIsSubmitting(true)
     setCrisisWarning('')
 
     try {
-      const data = await createCommunityPost({
+      const data = await createPostMutation.mutateAsync({
         content: postContent.trim(),
         topic_tag: postTopic || undefined,
       }) as any
@@ -93,39 +103,22 @@ export default function Community() {
         return
       }
 
-      if (data.approved && data.id) {
-        setPosts([{
-          id: data.id,
-          content: data.content,
-          topic_tag: data.topic_tag,
-          reactions: data.reactions,
-          created_at: data.created_at,
-          expires_at: data.expires_at,
-        }, ...posts])
-      }
-
       setShowPostModal(false)
       setPostContent('')
       setPostTopic('')
       addToast('Your voice matters. Thank you for sharing.', 'success')
     } catch {
-      addToast('Failed to share. Please try again.', 'error')
-    } finally {
-      setIsSubmitting(false)
+      // Error handled by mutation onError
     }
   }
 
   const handleReact = async (postId: string, reaction: string) => {
     const label = REACTION_LABELS[reaction]?.label || 'Reaction'
-    try {
-      const data = await reactToPost(postId, reaction) as any
-      setPosts(posts.map((p) =>
-        p.id === postId ? { ...p, reactions: data.reactions } : p,
-      ))
-      addToast(`${label} — thank you for showing up`, 'success')
-    } catch {
-      addToast('Could not save reaction. Try again.', 'error')
-    }
+    reactMutation.mutate({ postId, reaction }, {
+      onSuccess: () => {
+        addToast(`${label} — thank you for showing up`, 'success')
+      },
+    })
   }
 
   return (
@@ -137,7 +130,7 @@ export default function Community() {
             Vent Wall
           </h1>
           <p className="text-sm text-soro-fade mt-1">
-            Fully anonymous. Say what you need to say.
+            No names, no profiles — just your voice.
           </p>
         </div>
 
@@ -303,7 +296,7 @@ export default function Community() {
               <Button variant="ghost" fullWidth onClick={() => { setShowPostModal(false); setPostContent(''); setCrisisWarning('') }}>
                 Cancel
               </Button>
-              <Button fullWidth onClick={handleCreatePost} isLoading={isSubmitting}>
+              <Button fullWidth onClick={handleCreatePost} isLoading={createPostMutation.isPending}>
                 Share anonymously
               </Button>
             </div>

@@ -10,13 +10,15 @@ import {
   Mail,
   Lock,
 } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import PageTransition from '@/components/layout/PageTransition'
 import Button from '@/components/shared/Button'
 import Input from '@/components/shared/Input'
 import Modal from '@/components/shared/Modal'
 import { useAuthStore } from '@/stores/authStore'
 import { useToastStore } from '@/components/shared/Toast'
-import { logout, updateSettings, changePassword, exportAccountData, getSettings } from '@/lib/api'
+import { logout, updateSettings, changePassword, exportAccountData, getSettings, deleteAccount } from '@/lib/api'
+import { CRISIS_NUMBER, CRISIS_ORGANIZATION } from '@/lib/crisis'
 
 export default function Settings() {
   const { user, authMode, logout: storeLogout, setUser } = useAuthStore()
@@ -29,57 +31,77 @@ export default function Settings() {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
-  const [isSavingEmail, setIsSavingEmail] = useState(false)
-  const [isSavingPassword, setIsSavingPassword] = useState(false)
   const [emailError, setEmailError] = useState('')
   const [passwordError, setPasswordError] = useState('')
-  const [notifyAnchor, setNotifyAnchor] = useState(true)
-  const [notifyReminder, setNotifyReminder] = useState(true)
-  const [notifySaving, setNotifySaving] = useState<string | null>(null)
-  const [isExporting, setIsExporting] = useState(false)
   const [deferredPrompt, setDeferredPrompt] = useState<Event | null>(null)
   const addToast = useToastStore((s) => s.addToast)
+  const queryClient = useQueryClient()
 
-  // Load notification preferences on mount
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      try {
-        const data = await getSettings() as { notification_anchor?: boolean; notification_reminder?: boolean }
-        if (!cancelled) {
-          if (data.notification_anchor !== undefined) setNotifyAnchor(data.notification_anchor)
-          if (data.notification_reminder !== undefined) setNotifyReminder(data.notification_reminder)
-        }
-      } catch {
-        // Use defaults — no action needed
-      }
-    })()
-    return () => { cancelled = true }
-  }, [])
+  const { data: settings } = useQuery<{ notification_anchor?: boolean; notification_reminder?: boolean }>({
+    queryKey: ['settings'],
+    queryFn: getSettings as () => Promise<{ notification_anchor?: boolean; notification_reminder?: boolean }>,
+  })
 
-  const handleNotifyToggle = async (key: 'anchor' | 'reminder', value: boolean) => {
-    if (key === 'anchor') setNotifyAnchor(value)
-    else setNotifyReminder(value)
+  const notifyAnchor = settings?.notification_anchor ?? true
+  const notifyReminder = settings?.notification_reminder ?? true
 
-    setNotifySaving(key)
-    try {
-      await updateSettings({
-        notification_anchor: key === 'anchor' ? value : notifyAnchor,
-        notification_reminder: key === 'reminder' ? value : notifyReminder,
-      })
-      addToast(
-        key === 'anchor' ? 'Daily anchor notifications updated' : 'Check-in reminders updated',
-        'success',
-      )
-    } catch {
-      // Revert on failure
-      if (key === 'anchor') setNotifyAnchor(!value)
-      else setNotifyReminder(!value)
+  const notifyMutation = useMutation({
+    mutationFn: (data: { notification_anchor: boolean; notification_reminder: boolean }) =>
+      updateSettings(data as Record<string, unknown>),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      addToast('Notification preferences updated', 'success')
+    },
+    onError: () => {
       addToast('Failed to save notification setting', 'error')
-    } finally {
-      setNotifySaving(null)
-    }
-  }
+    },
+  })
+
+  const emailMutation = useMutation({
+    mutationFn: (newEmail: string) => updateSettings({ email: newEmail } as Record<string, unknown>),
+    onSuccess: (_data, newEmail) => {
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      if (user) {
+        setUser({ ...user, email: newEmail }, useAuthStore.getState().token!, 'email')
+      }
+      addToast('Email updated successfully', 'success')
+      setShowEmailModal(false)
+    },
+    onError: (err: any) => {
+      setEmailError(err.message || 'Failed to update email')
+    },
+  })
+
+  const passwordMutation = useMutation({
+    mutationFn: ({ current, newPw }: { current: string; newPw: string }) =>
+      changePassword(current, newPw),
+    onSuccess: () => {
+      addToast('Password changed successfully', 'success')
+      setShowPasswordModal(false)
+    },
+    onError: (err: any) => {
+      setPasswordError(err.message || 'Failed to change password')
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteAccount(),
+    onSuccess: () => {
+      storeLogout()
+      addToast('Your account has been permanently deleted.', 'info')
+      setTimeout(() => { window.location.href = '/' }, 500)
+    },
+    onError: () => {
+      addToast('Failed to delete account. Please try again.', 'error')
+      setIsDeleting(false)
+      setShowDeleteModal(false)
+    },
+  })
+
+  const [isSavingEmail, setIsSavingEmail] = useState(false)
+  const [isSavingPassword, setIsSavingPassword] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Listen for PWA install prompt
   useEffect(() => {
@@ -131,9 +153,7 @@ export default function Settings() {
       await logout()
       storeLogout()
       addToast("See you soon. You're signed out.", 'info')
-      setTimeout(() => {
-        window.location.href = '/'
-      }, 500)
+      setTimeout(() => { window.location.href = '/' }, 500)
     } catch {
       addToast('Failed to sign out', 'error')
       setIsLoggingOut(false)
@@ -141,10 +161,21 @@ export default function Settings() {
     }
   }
 
-  const handleDeleteAccount = () => {
-    // TODO: API call
-    storeLogout()
-    window.location.href = '/'
+  const handleDeleteAccount = async () => {
+    setIsDeleting(true)
+    deleteMutation.mutate(undefined, {
+      onSettled: () => {
+        setIsDeleting(false)
+        setShowDeleteModal(false)
+      },
+    })
+  }
+
+  const handleNotifyToggle = (key: 'anchor' | 'reminder', value: boolean) => {
+    notifyMutation.mutate({
+      notification_anchor: key === 'anchor' ? value : notifyAnchor,
+      notification_reminder: key === 'reminder' ? value : notifyReminder,
+    })
   }
 
   return (
@@ -169,13 +200,13 @@ export default function Settings() {
                 Need to talk to someone right now?
               </h3>
               <p className="text-xs text-soro-fade mb-3">
-                MANI Helpline: 08111909909 — Available 24/7
+                {CRISIS_ORGANIZATION}: {CRISIS_NUMBER} — Available 24/7
               </p>
               <a
-                href="tel:08111909909"
+                href={`tel:${CRISIS_NUMBER}`}
                 className="btn-crisis inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold"
               >
-                Call 08111909909
+                Call {CRISIS_NUMBER}
               </a>
             </div>
           </div>
@@ -262,7 +293,7 @@ export default function Settings() {
               <input
                 type="checkbox"
                 checked={notifyAnchor}
-                disabled={notifySaving === 'anchor'}
+                disabled={notifyMutation.isPending}
                 onChange={(e) => handleNotifyToggle('anchor', e.target.checked)}
                 className="w-5 h-5 rounded border-soro-earth/30 bg-soro-surface text-soro-ember focus:ring-soro-ember/40 disabled:opacity-50"
               />
@@ -279,7 +310,7 @@ export default function Settings() {
               <input
                 type="checkbox"
                 checked={notifyReminder}
-                disabled={notifySaving === 'reminder'}
+                disabled={notifyMutation.isPending}
                 onChange={(e) => handleNotifyToggle('reminder', e.target.checked)}
                 className="w-5 h-5 rounded border-soro-earth/30 bg-soro-surface text-soro-ember focus:ring-soro-ember/40 disabled:opacity-50"
               />
@@ -384,28 +415,17 @@ export default function Settings() {
         title="Change email"
       >
         <form
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault()
             setEmailError('')
-
             if (!email || !email.includes('@')) {
               setEmailError('Please enter a valid email address')
               return
             }
-
             setIsSavingEmail(true)
-            try {
-              await updateSettings({ email })
-              if (user) {
-                setUser({ ...user, email }, useAuthStore.getState().token!, 'email')
-              }
-              addToast('Email updated successfully', 'success')
-              setShowEmailModal(false)
-            } catch (err: any) {
-              setEmailError(err.message || 'Failed to update email')
-            } finally {
-              setIsSavingEmail(false)
-            }
+            emailMutation.mutate(email, {
+              onSettled: () => setIsSavingEmail(false),
+            })
           }}
           className="space-y-4 pt-1"
         >
@@ -450,10 +470,9 @@ export default function Settings() {
         title="Change password"
       >
         <form
-          onSubmit={async (e) => {
+          onSubmit={(e) => {
             e.preventDefault()
             setPasswordError('')
-
             if (!currentPassword) {
               setPasswordError('Please enter your current password')
               return
@@ -466,17 +485,10 @@ export default function Settings() {
               setPasswordError('New passwords do not match')
               return
             }
-
             setIsSavingPassword(true)
-            try {
-              await changePassword(currentPassword, newPassword)
-              addToast('Password changed successfully', 'success')
-              setShowPasswordModal(false)
-            } catch (err: any) {
-              setPasswordError(err.message || 'Failed to change password')
-            } finally {
-              setIsSavingPassword(false)
-            }
+            passwordMutation.mutate({ current: currentPassword, newPw: newPassword }, {
+              onSettled: () => setIsSavingPassword(false),
+            })
           }}
           className="space-y-4 pt-1"
         >
@@ -581,6 +593,7 @@ export default function Settings() {
           <Button
             variant="danger"
             fullWidth
+            isLoading={isDeleting}
             onClick={handleDeleteAccount}
           >
             Delete forever

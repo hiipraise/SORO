@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   Users, Plus, ArrowRight, Shield, UserPlus,
 } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import PageTransition from '@/components/layout/PageTransition'
 import Button from '@/components/shared/Button'
 import Input from '@/components/shared/Input'
@@ -47,59 +48,56 @@ const EMOJI_MAP: Record<string, string> = {
 
 export default function Circles() {
   const navigate = useNavigate()
-  const [circles, setCircles] = useState<CircleData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [selectedTopic, setSelectedTopic] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createForm, setCreateForm] = useState({ name: '', topic: 'General', max_members: 20 })
-  const [isCreating, setIsCreating] = useState(false)
   const [joiningId, setJoiningId] = useState<string | null>(null)
   const { addToast } = useToastStore()
+  const queryClient = useQueryClient()
 
-  const loadCircles = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const data = await getCircles(selectedTopic || undefined) as CircleData[]
-      setCircles(data)
-    } catch {
-      // Empty
-    } finally {
-      setIsLoading(false)
-    }
-  }, [selectedTopic])
+  const { data: circles = [], isLoading } = useQuery<CircleData[]>({
+    queryKey: ['circles', selectedTopic],
+    queryFn: () => getCircles(selectedTopic || undefined) as Promise<CircleData[]>,
+  })
 
-  useEffect(() => { loadCircles() }, [loadCircles])
-
-  const handleJoin = async (circleId: string) => {
-    setJoiningId(circleId)
-    try {
-      const data = await joinCircle(circleId) as any
+  const joinMutation = useMutation({
+    mutationFn: (circleId: string) => joinCircle(circleId),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['circles'] })
       addToast(`Joined as ${data.display_name}`, 'success')
-      loadCircles()
-    } catch (err: any) {
+    },
+    onError: (err: any) => {
       addToast(err?.message || 'Failed to join circle', 'error')
-    } finally {
-      setJoiningId(null)
-    }
-  }
+    },
+  })
 
-  const handleCreate = async () => {
-    if (!createForm.name.trim()) {
-      addToast('Please give the circle a name', 'error')
-      return
-    }
-    setIsCreating(true)
-    try {
-      const data = await createCircle(createForm) as any
+  const createMutation = useMutation({
+    mutationFn: (data: { name: string; topic: string; max_members: number }) => createCircle(data),
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: ['circles'] })
       setShowCreateModal(false)
       setCreateForm({ name: '', topic: 'General', max_members: 20 })
       addToast(`Circle created! You're ${data.display_name}`, 'success')
       navigate(`/app/circles/${data.id}`)
-    } catch (err: any) {
+    },
+    onError: (err: any) => {
       addToast(err?.message || 'Failed to create circle', 'error')
-    } finally {
-      setIsCreating(false)
+    },
+  })
+
+  const handleJoin = (circleId: string) => {
+    setJoiningId(circleId)
+    joinMutation.mutate(circleId, {
+      onSettled: () => setJoiningId(null),
+    })
+  }
+
+  const handleCreate = () => {
+    if (!createForm.name.trim()) {
+      addToast('Please give the circle a name', 'error')
+      return
     }
+    createMutation.mutate(createForm)
   }
 
   const myCircles = circles.filter((c) => c.has_joined)
@@ -275,7 +273,7 @@ export default function Circles() {
               <Button variant="ghost" fullWidth onClick={() => { setShowCreateModal(false); setCreateForm({ name: '', topic: 'General', max_members: 20 }) }}>
                 Cancel
               </Button>
-              <Button fullWidth onClick={handleCreate} isLoading={isCreating}>
+              <Button fullWidth onClick={handleCreate} isLoading={createMutation.isPending}>
                 Create circle
               </Button>
             </div>

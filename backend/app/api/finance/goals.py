@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from app.models.goal import Goal
-from app.api.deps import get_current_user_id
+from app.api.deps import get_current_user_id, get_or_404
 from app.services.email_service import send_goal_celebration
 from app.models.user import User
 
@@ -25,6 +25,10 @@ class UpdateGoalRequest(BaseModel):
     current_amount: Optional[float] = None
     deadline: Optional[str] = None
     priority: Optional[str] = None
+
+
+class ProgressGoalRequest(BaseModel):
+    amount: float
 
 
 @router.get("/")
@@ -88,6 +92,52 @@ async def create_goal(
     }
 
 
+@router.post("/{goal_id}/progress")
+async def progress_goal(
+    goal_id: str,
+    req: ProgressGoalRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Atomically increment current_amount using $inc.
+    Avoids lost-update races from concurrent quick-progress clicks.
+    """
+    goal = await get_or_404(Goal, goal_id, "Goal not found")
+    if goal.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Goal not found")
+
+    # Atomic increment
+    collection = Goal.get_motor_collection()
+    await collection.update_one(
+        {"_id": goal.id},
+        {"$inc": {"current_amount": req.amount}},
+    )
+
+    # Fetch updated document
+    goal = await Goal.get(goal_id)
+
+    # Check for completion
+    if goal.current_amount >= goal.target_amount and goal.target_amount > 0:
+        goal.status = "completed"
+        user = await User.get(user_id)
+        if user and user.email:
+            await send_goal_celebration(user.email, goal.title)
+
+    await goal.save()
+
+    return {
+        "id": str(goal.id),
+        "title": goal.title,
+        "target_amount": goal.target_amount,
+        "current_amount": goal.current_amount,
+        "deadline": goal.deadline,
+        "priority": goal.priority,
+        "status": goal.status,
+        "progress": round((goal.current_amount / goal.target_amount) * 100, 1) if goal.target_amount > 0 else 0,
+        "created_at": goal.created_at.isoformat(),
+    }
+
+
 @router.patch("/{goal_id}")
 async def update_goal(
     goal_id: str,
@@ -95,8 +145,8 @@ async def update_goal(
     user_id: str = Depends(get_current_user_id),
 ):
     """Update a micro-goal. If current_amount reaches target, mark as completed."""
-    goal = await Goal.get(goal_id)
-    if not goal or goal.user_id != user_id:
+    goal = await get_or_404(Goal, goal_id, "Goal not found")
+    if goal.user_id != user_id:
         raise HTTPException(status_code=404, detail="Goal not found")
 
     update_data = req.model_dump(exclude_none=True)

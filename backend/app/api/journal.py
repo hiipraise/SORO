@@ -1,22 +1,22 @@
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.journal_entry import JournalEntry
-from app.api.deps import get_current_user_id
+from app.api.deps import get_current_user_id, get_or_404
 
 router = APIRouter(prefix="/journal", tags=["journal"])
 
 
 class CreateJournalEntryRequest(BaseModel):
     title: str = "Untitled"
-    content: str = ""
+    content: str = Field(default="", max_length=10000)
     mood_tag: Optional[str] = None
 
 
 class UpdateJournalEntryRequest(BaseModel):
     title: Optional[str] = None
-    content: Optional[str] = None
+    content: Optional[str] = Field(default=None, max_length=10000)
     mood_tag: Optional[str] = None
     is_locked: Optional[bool] = None
 
@@ -50,8 +50,8 @@ async def get_journal_entry(
     user_id: str = Depends(get_current_user_id),
 ):
     """Get a single journal entry."""
-    entry = await JournalEntry.get(entry_id)
-    if not entry or entry.user_id != user_id:
+    entry = await get_or_404(JournalEntry, entry_id, "Journal entry not found")
+    if entry.user_id != user_id:
         raise HTTPException(status_code=404, detail="Journal entry not found")
 
     return {
@@ -97,8 +97,8 @@ async def update_journal_entry(
     user_id: str = Depends(get_current_user_id),
 ):
     """Update a journal entry."""
-    entry = await JournalEntry.get(entry_id)
-    if not entry or entry.user_id != user_id:
+    entry = await get_or_404(JournalEntry, entry_id, "Journal entry not found")
+    if entry.user_id != user_id:
         raise HTTPException(status_code=404, detail="Journal entry not found")
 
     from datetime import datetime, timezone
@@ -127,8 +127,8 @@ async def delete_journal_entry(
     user_id: str = Depends(get_current_user_id),
 ):
     """Delete a journal entry."""
-    entry = await JournalEntry.get(entry_id)
-    if not entry or entry.user_id != user_id:
+    entry = await get_or_404(JournalEntry, entry_id, "Journal entry not found")
+    if entry.user_id != user_id:
         raise HTTPException(status_code=404, detail="Journal entry not found")
 
     await entry.delete()

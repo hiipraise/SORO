@@ -12,6 +12,8 @@ const Login = lazy(() => import('@/pages/auth/Login'))
 const ForgotPassword = lazy(() => import('@/pages/auth/ForgotPassword'))
 const About = lazy(() => import('@/pages/About'))
 import ToastContainer from '@/components/shared/Toast'
+import ErrorBoundary from '@/components/shared/ErrorBoundary'
+const RequireAuth = lazy(() => import('@/components/auth/RequireAuth'))
 const Home = lazy(() => import('@/pages/app/Home'))
 const Checkin = lazy(() => import('@/pages/app/Checkin'))
 const Reflect = lazy(() => import('@/pages/app/Reflect'))
@@ -50,7 +52,8 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ToastContainer />
-        <Suspense fallback={<Spinner />}>
+        <ErrorBoundary>
+          <Suspense fallback={<Spinner />}>
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<Landing />} />
@@ -60,8 +63,9 @@ createRoot(document.getElementById('root')!).render(
             <Route path="/auth/forgot-password" element={<ForgotPassword />} />
             <Route path="/about" element={<About />} />
 
-            {/* App routes — wrapped in AppShell */}
-            <Route element={<AppShell />}>
+            {/* App routes — wrapped in RequireAuth + AppShell */}
+            <Route element={<RequireAuth />}>
+              <Route element={<AppShell />}>
               <Route path="/app/home" element={<Home />} />
               <Route path="/app/checkin" element={<Checkin />} />
               <Route path="/app/reflect" element={<Reflect />} />
@@ -77,8 +81,10 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/app/circles" element={<Circles />} />
               <Route path="/app/circles/:id" element={<CircleDetail />} />
             </Route>
+            </Route>
           </Routes>
         </Suspense>
+        </ErrorBoundary>
       </BrowserRouter>
     </QueryClientProvider>
   </StrictMode>,

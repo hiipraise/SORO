@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { Plus, Trash2, CheckCircle, Circle, ArrowLeft } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import PageTransition from '@/components/layout/PageTransition'
 import Button from '@/components/shared/Button'
 import Input from '@/components/shared/Input'
@@ -10,7 +11,7 @@ import Modal from '@/components/shared/Modal'
 import EmptyState from '@/components/shared/EmptyState'
 import ProgressBar from '@/components/shared/ProgressBar'
 import AdSlot from '@/components/ui/AdSlot'
-import { getDebts, createDebt, updateDebt, deleteDebt } from '@/lib/api'
+import { getDebts, createDebt, updateDebt, deleteDebt, payDebt } from '@/lib/api'
 import { useToastStore } from '@/components/shared/Toast'
 
 interface DebtData {
@@ -27,78 +28,90 @@ const defaultForm = { label: '', amount: 0, amount_paid: 0, due_date: '', notes:
 
 export default function DebtTracker() {
   const navigate = useNavigate()
-  const [debts, setDebts] = useState<DebtData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [form, setForm] = useState(defaultForm)
-  const [saving, setSaving] = useState(false)
+  const [paying, setPaying] = useState<Set<string>>(new Set())
   const { addToast } = useToastStore()
+  const queryClient = useQueryClient()
 
-  const loadDebts = useCallback(async () => {
-    try {
-      const data = await getDebts() as DebtData[]
-      setDebts(data)
-    } catch {
-      // Empty
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+  const { data: debts = [], isLoading } = useQuery<DebtData[]>({
+    queryKey: ['debts'],
+    queryFn: getDebts as () => Promise<DebtData[]>,
+  })
 
-  useEffect(() => { loadDebts() }, [loadDebts])
+  const createMutation = useMutation({
+    mutationFn: (data: typeof defaultForm) => createDebt(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['debts'] })
+      setShowModal(false)
+      setForm(defaultForm)
+      addToast('Debt added', 'success')
+    },
+    onError: () => {
+      addToast('Failed to add debt', 'error')
+    },
+  })
 
-  const handleCreate = async () => {
+  const payMutation = useMutation({
+    mutationFn: ({ id, amount }: { id: string; amount: number }) => payDebt(id, amount),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['debts'] })
+      const debt = debts.find((d) => d.id === variables.id)
+      if (debt) {
+        const newPaid = debt.amount_paid + variables.amount
+        if (newPaid >= debt.amount) {
+          addToast(`${debt.label} — cleared! E don clear!`, 'success')
+        } else {
+          addToast(`₦${variables.amount.toLocaleString()} paid toward ${debt.label}`, 'success')
+        }
+      }
+    },
+    onError: () => {
+      addToast('Failed to update debt', 'error')
+    },
+  })
+
+  const clearMutation = useMutation({
+    mutationFn: (debt: DebtData) => updateDebt(debt.id, { amount_paid: debt.amount, status: 'cleared' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['debts'] })
+      addToast('Debt cleared!', 'success')
+    },
+    onError: () => {
+      addToast('Failed to clear debt', 'error')
+    },
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteDebt(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['debts'] })
+      addToast('Debt removed', 'info')
+    },
+    onError: () => {
+      addToast('Failed to delete debt', 'error')
+    },
+  })
+
+  const handleCreate = () => {
     if (!form.label || form.amount <= 0) {
       addToast('Please fill in the label and amount', 'error')
       return
     }
-    setSaving(true)
-    try {
-      const data = await createDebt(form)
-      setDebts([data as DebtData, ...debts])
-      setShowModal(false)
-      setForm(defaultForm)
-      addToast('Debt added', 'success')
-    } catch {
-      addToast('Failed to add debt', 'error')
-    } finally {
-      setSaving(false)
-    }
+    createMutation.mutate(form)
   }
 
   const handlePay = async (debt: DebtData, amount: number) => {
-    const newPaid = debt.amount_paid + amount
-    try {
-      const updated = await updateDebt(debt.id, { amount_paid: newPaid })
-      setDebts(debts.map((d) => (d.id === debt.id ? (updated as DebtData) : d)))
-      if (newPaid >= debt.amount) {
-        addToast(`${debt.label} — cleared! E don clear!`, 'success')
-      } else {
-        addToast(`₦${amount.toLocaleString()} paid toward ${debt.label}`, 'success')
-      }
-    } catch {
-      addToast('Failed to update debt', 'error')
-    }
-  }
-
-  const handleClear = async (debt: DebtData) => {
-    try {
-      const updated = await updateDebt(debt.id, { amount_paid: debt.amount, status: 'cleared' })
-      setDebts(debts.map((d) => (d.id === debt.id ? (updated as DebtData) : d)))
-      addToast(`${debt.label} — cleared! 🎉`, 'success')
-    } catch {
-      addToast('Failed to clear debt', 'error')
-    }
-  }
-
-  const handleDelete = async (id: string) => {
-    try {
-      await deleteDebt(id)
-      setDebts(debts.filter((d) => d.id !== id))
-      addToast('Debt removed', 'info')
-    } catch {
-      addToast('Failed to delete debt', 'error')
-    }
+    setPaying((prev) => new Set(prev).add(debt.id))
+    payMutation.mutate({ id: debt.id, amount }, {
+      onSettled: () => {
+        setPaying((prev) => {
+          const next = new Set(prev)
+          next.delete(debt.id)
+          return next
+        })
+      },
+    })
   }
 
   const totalRemaining = debts.reduce((sum, d) => sum + (d.amount - d.amount_paid), 0)
@@ -172,7 +185,6 @@ export default function DebtTracker() {
           />
         ) : (
           <div className="space-y-3">
-            {/* Sort: unpaid first, then cleared */}
             {[...debts]
               .sort((a, b) => {
                 if (a.status === 'cleared' && b.status !== 'cleared') return 1
@@ -239,26 +251,29 @@ export default function DebtTracker() {
                           <>
                             <button
                               onClick={() => handlePay(debt, 1000)}
-                              className="px-3 py-1 rounded-lg bg-soro-safe/20 text-green-400 text-xs font-medium hover:bg-soro-safe/30 transition-colors"
+                              disabled={paying.has(debt.id)}
+                              className="px-3 py-1 rounded-lg bg-soro-safe/20 text-green-400 text-xs font-medium hover:bg-soro-safe/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                              +₦1,000
+                              {paying.has(debt.id) ? '...' : '+₦1,000'}
                             </button>
                             <button
                               onClick={() => handlePay(debt, 5000)}
-                              className="px-3 py-1 rounded-lg bg-soro-safe/20 text-green-400 text-xs font-medium hover:bg-soro-safe/30 transition-colors"
+                              disabled={paying.has(debt.id)}
+                              className="px-3 py-1 rounded-lg bg-soro-safe/20 text-green-400 text-xs font-medium hover:bg-soro-safe/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                              +₦5,000
+                              {paying.has(debt.id) ? '...' : '+₦5,000'}
                             </button>
                             <button
-                              onClick={() => handleClear(debt)}
-                              className="px-3 py-1 rounded-lg bg-soro-ember/10 text-soro-ember text-xs font-medium hover:bg-soro-ember/20 transition-colors"
+                              onClick={() => clearMutation.mutate(debt)}
+                              disabled={paying.has(debt.id)}
+                              className="px-3 py-1 rounded-lg bg-soro-ember/10 text-soro-ember text-xs font-medium hover:bg-soro-ember/20 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                              Clear all
+                              {paying.has(debt.id) ? '...' : 'Clear all'}
                             </button>
                           </>
                         )}
                         <button
-                          onClick={() => handleDelete(debt.id)}
+                          onClick={() => deleteMutation.mutate(debt.id)}
                           className="p-1.5 rounded-lg text-soro-fade hover:text-soro-danger hover:bg-soro-danger/10 transition-colors mt-1"
                         >
                           <Trash2 size={14} />
@@ -318,9 +333,9 @@ export default function DebtTracker() {
               <Button variant="ghost" fullWidth onClick={() => { setShowModal(false); setForm(defaultForm) }}>
                 Cancel
               </Button>
-              <Button fullWidth onClick={handleCreate} isLoading={saving}>
-                Add debt
-              </Button>
+            <Button fullWidth onClick={handleCreate} isLoading={createMutation.isPending}>
+              Add debt
+            </Button>
             </div>
           </div>
         </Modal>

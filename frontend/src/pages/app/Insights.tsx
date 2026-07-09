@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   BarChart3,
@@ -18,10 +18,12 @@ import {
   BarChart,
   Bar,
 } from 'recharts'
+import { useQuery } from '@tanstack/react-query'
 import PageTransition from '@/components/layout/PageTransition'
 import AdSlot from '@/components/ui/AdSlot'
 import CheckinHeatmap from '@/components/ui/CheckinHeatmap'
 import { useCheckinStore, MOOD_LABELS } from '@/stores/checkinStore'
+import { getMoodInsights } from '@/lib/api'
 
 const moodScore: Record<string, number> = {
   at_limit: 1,
@@ -31,7 +33,35 @@ const moodScore: Record<string, number> = {
   good: 5,
 }
 
-const weekDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+function buildDayLabels(days: number): string[] {
+  const labels: string[] = []
+  for (let i = 0; i < days; i++) {
+    const d = new Date()
+    d.setDate(d.getDate() - (days - 1 - i))
+    labels.push(
+      days <= 7
+        ? d.toLocaleDateString('en-US', { weekday: 'short' })
+        : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    )
+  }
+  return labels
+}
+
+function formatDateStr(date: Date): string {
+  return date.toISOString().split('T')[0]
+}
+
+interface MoodDataPoint {
+  date: string
+  mood_state: string
+  score: number
+}
+
+interface MoodStats {
+  total_checkins: number
+  average_score: number
+  streak: number
+}
 
 interface CorrelationData {
   avg_mood_with_financial_stress: number
@@ -50,63 +80,71 @@ interface DebtStats {
 }
 
 export default function Insights() {
-  const { checkinHistory, streak } = useCheckinStore()
+  const { checkinHistory } = useCheckinStore()
   const [timeRange, setTimeRange] = useState<'week' | 'month'>('week')
   const [correlation, setCorrelation] = useState<CorrelationData | null>(null)
   const [debtStats, setDebtStats] = useState<DebtStats | null>(null)
   const [financeLoading, setFinanceLoading] = useState(true)
 
-  const loadFinanceInsights = useCallback(async () => {
-    try {
+  // Fetch mood insights from server
+  const { data: moodResponse, isLoading: moodLoading, isError: moodError } = useQuery({
+    queryKey: ['mood-insights'],
+    queryFn: getMoodInsights,
+  })
+
+  const anyMoodResponse = moodResponse as any
+  const moodData: MoodDataPoint[] = anyMoodResponse?.data ?? []
+  const moodStats: MoodStats | null = anyMoodResponse?.stats ?? null
+
+  // Fetch finance insights independently
+  const { data: financeData } = useQuery({
+    queryKey: ['finance-insights'],
+    queryFn: async () => {
       const { api } = await import('@/lib/api')
-      // We need finance insights
-      const financeData = await api('/insights/finance') as any
+      return api('/insights/finance') as any
+    },
+    enabled: !!moodStats && ((moodStats.streak ?? 0) > 0 || checkinHistory.length > 0),
+  })
+
+  useEffect(() => {
+    if (financeData) {
       if (financeData.mood_correlation) {
         setCorrelation(financeData.mood_correlation)
       }
       if (financeData.debt_stats) {
         setDebtStats(financeData.debt_stats)
       }
-    } catch {
-      // Silent — this is optional data
-    } finally {
       setFinanceLoading(false)
+    } else if (moodStats && !financeData) {
+      const hasAnyData = (moodStats.streak ?? 0) > 0 || checkinHistory.length > 0
+      if (!hasAnyData) {
+        setFinanceLoading(false)
+      }
     }
-  }, [])
+  }, [financeData, moodStats, checkinHistory.length])
 
-  useEffect(() => {
-    if (streak > 0) {
-      loadFinanceInsights()
-    } else {
-      setFinanceLoading(false)
-    }
-  }, [streak, loadFinanceInsights])
-
-  // Generate chart data from actual check-ins
-  const chartData = weekDays.map((day, i) => {
+  // Build chart data from server mood data
+  const windowDays = timeRange === 'month' ? 30 : 7
+  const dayLabels = buildDayLabels(windowDays)
+  const chartData = dayLabels.map((label, i) => {
     const date = new Date()
-    date.setDate(date.getDate() - (6 - i))
-    const dateStr = date.toISOString().split('T')[0]
-    const checkin = checkinHistory.find((c) => c.date === dateStr)
+    date.setDate(date.getDate() - (windowDays - 1 - i))
+    const dateStr = formatDateStr(date)
+    const dp = moodData.find((d) => d.date.startsWith(dateStr))
 
     return {
-      day,
-      score: checkin ? moodScore[checkin.mood] || 3 : null,
-      label: checkin ? MOOD_LABELS[checkin.mood] : 'No check-in',
+      day: label,
+      score: dp ? dp.score : null,
+      label: dp ? (MOOD_LABELS[dp.mood_state as keyof typeof MOOD_LABELS] ?? dp.mood_state.replace('_', ' ')) : 'No check-in',
     }
   })
 
   const hasData = chartData.some((d) => d.score !== null)
 
-  // Stats
-  const totalCheckins = checkinHistory.length
-  const averageMood = hasData
-    ? Math.round(
-        (chartData.reduce((sum, d) => sum + (d.score || 0), 0) /
-          chartData.filter((d) => d.score !== null).length) *
-          10,
-      ) / 10
-    : 0
+  // Stats from server
+  const totalCheckins = moodStats?.total_checkins ?? checkinHistory.length
+  const streak = moodStats?.streak ?? 0
+  const averageMood = moodStats?.average_score ?? 0
 
   const trendDirection =
     chartData.length >= 2 &&
@@ -234,6 +272,7 @@ export default function Insights() {
                     dataKey="day"
                     axisLine={false}
                     tickLine={false}
+                    interval={timeRange === 'month' ? 4 : 0}
                     tick={{ fill: '#6B7280', fontSize: 12 }}
                   />
                   <YAxis

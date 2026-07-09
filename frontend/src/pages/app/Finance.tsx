@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
   TrendingDown, TrendingUp, ArrowRight, Wallet, Target,
 } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import PageTransition from '@/components/layout/PageTransition'
 import Button from '@/components/shared/Button'
 import ProgressBar from '@/components/shared/ProgressBar'
@@ -30,27 +30,17 @@ interface GoalData {
 }
 
 export default function FinanceDashboard() {
-  const [debts, setDebts] = useState<DebtData[]>([])
-  const [goals, setGoals] = useState<GoalData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const loadData = useCallback(async () => {
-    setIsLoading(true)
-    try {
-      const [debtsData, goalsData] = await Promise.all([
-        getDebts(),
-        getGoals(),
-      ])
-      setDebts(debtsData as DebtData[])
-      setGoals(goalsData as GoalData[])
-    } catch {
-      // Use empty state if API unavailable
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
+  const { data: debts = [], isLoading: debtsLoading } = useQuery<DebtData[]>({
+    queryKey: ['debts'],
+    queryFn: getDebts as () => Promise<DebtData[]>,
+  })
 
-  useEffect(() => { loadData() }, [loadData])
+  const { data: goals = [], isLoading: goalsLoading } = useQuery<GoalData[]>({
+    queryKey: ['goals'],
+    queryFn: getGoals as () => Promise<GoalData[]>,
+  })
 
+  const isLoading = debtsLoading || goalsLoading
   const totalDebt = debts.reduce((sum, d) => sum + (d.amount - d.amount_paid), 0)
   const activeGoals = goals.filter((g) => g.status === 'active')
   const completedGoals = goals.filter((g) => g.status === 'completed')
@@ -254,7 +244,7 @@ export default function FinanceDashboard() {
           )}
         </div>
 
-        {/* Ad */ }
+        {/* Ad */}
         <AdSlot className="mt-8" />
       </div>
     </PageTransition>

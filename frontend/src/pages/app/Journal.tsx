@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { Plus, Search, Trash2 } from 'lucide-react'
+import { Plus, Search, Trash2, AlertCircle, RefreshCw } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import PageTransition from '@/components/layout/PageTransition'
 import Button from '@/components/shared/Button'
 import Input from '@/components/shared/Input'
@@ -9,6 +10,7 @@ import EmptyState from '@/components/shared/EmptyState'
 import AdSlot from '@/components/ui/AdSlot'
 import { getJournalEntries, deleteJournalEntry } from '@/lib/api'
 import { type MoodState, MOOD_COLORS } from '@/stores/checkinStore'
+import { useToastStore } from '@/components/shared/Toast'
 
 interface JournalEntryData {
   id: string
@@ -18,25 +20,6 @@ interface JournalEntryData {
   created_at: string
   updated_at: string
 }
-
-const mockEntries: JournalEntryData[] = [
-  {
-    id: '1',
-    title: 'Today was heavy',
-    content: "I don't even know where to start. Everything feels like too much right now...",
-    mood_tag: 'at_limit',
-    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-  },
-  {
-    id: '2',
-    title: 'Small wins',
-    content: "Managed to get through the day. That counts for something, right?...",
-    mood_tag: 'managing',
-    created_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-    updated_at: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-  },
-]
 
 function getRelativeTime(dateStr: string): string {
   const now = Date.now()
@@ -52,23 +35,29 @@ function getRelativeTime(dateStr: string): string {
 }
 
 export default function Journal() {
-  const [entries, setEntries] = useState<JournalEntryData[]>(mockEntries)
   const [searchQuery, setSearchQuery] = useState('')
-  const [isLoading, setIsLoading] = useState(true)
+  const addToast = useToastStore((s) => s.addToast)
+  const queryClient = useQueryClient()
 
-  useEffect(() => {
-    async function loadEntries() {
-      try {
-        const data = await getJournalEntries() as JournalEntryData[]
-        setEntries(data)
-      } catch {
-        // Use mock data
-      } finally {
-        setIsLoading(false)
-      }
-    }
-    loadEntries()
-  }, [])
+  const {
+    data: entries = [],
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery<JournalEntryData[]>({
+    queryKey: ['journal-entries'],
+    queryFn: getJournalEntries as () => Promise<JournalEntryData[]>,
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteJournalEntry,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['journal-entries'] })
+    },
+    onError: () => {
+      addToast('Failed to delete journal entry', 'error')
+    },
+  })
 
   const filtered = entries.filter(
     (e) =>
@@ -77,12 +66,7 @@ export default function Journal() {
   )
 
   const handleDelete = async (id: string) => {
-    try {
-      await deleteJournalEntry(id)
-      setEntries(entries.filter((e) => e.id !== id))
-    } catch {
-      setEntries(entries.filter((e) => e.id !== id))
-    }
+    deleteMutation.mutate(id)
   }
 
   return (
@@ -123,6 +107,21 @@ export default function Journal() {
               </div>
             ))}
           </div>
+        ) : isError ? (
+          <EmptyState
+            icon={<AlertCircle size={48} />}
+            title="Failed to load entries"
+            description="Failed to load journal entries. Check your connection and try again."
+            action={
+              <Button
+                onClick={() => refetch()}
+                variant="primary"
+                leftIcon={<RefreshCw size={18} />}
+              >
+                Try again
+              </Button>
+            }
+          />
         ) : filtered.length === 0 ? (
           <EmptyState
             title={searchQuery ? 'No entries found' : 'No journal entries yet'}
@@ -132,11 +131,13 @@ export default function Journal() {
                 : 'Your journal is empty. Start writing your first entry.'
             }
             action={
-              <Link to="/app/journal/new">
-                <Button variant="primary" leftIcon={<Plus size={18} />}>
-                  Write your first entry
-                </Button>
-              </Link>
+              !searchQuery && (
+                <Link to="/app/journal/new">
+                  <Button variant="primary" leftIcon={<Plus size={18} />}>
+                    Write your first entry
+                  </Button>
+                </Link>
+              )
             }
           />
         ) : (

@@ -26,5 +26,8 @@ redis==5.2.0
 # Scheduler
 apscheduler==3.10.4
 
+# Rate limiting
+slowapi==0.1.9
+
 # Misc
 python-dotenv==1.0.1

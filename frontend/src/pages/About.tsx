@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import {
   Heart, Shield, Target, Globe, Quote, ArrowRight,
 } from 'lucide-react'
+import { CRISIS_NUMBER, CRISIS_ORGANIZATION } from '@/lib/crisis'
 import CrisisButton from '@/components/ui/CrisisButton'
 
 const values = [
@@ -51,7 +52,7 @@ const faqs = [
   },
   {
     q: 'I\'m in crisis right now. What do I do?',
-    a: 'Please reach out to MANI Helpline at 08111909909. Help is available 24/7. There\'s always a crisis button at the bottom-right of every page.',
+    a: `Please reach out to ${CRISIS_ORGANIZATION} at ${CRISIS_NUMBER}. Help is available 24/7. There\'s always a crisis button at the bottom-right of every page.`,
   },
 ]
 

@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from app.models.debt import Debt
-from app.api.deps import get_current_user_id
+from app.api.deps import get_current_user_id, get_or_404
 
 router = APIRouter(prefix="/debts", tags=["finance"])
 
@@ -24,6 +24,10 @@ class UpdateDebtRequest(BaseModel):
     due_date: Optional[str] = None
     status: Optional[str] = None
     notes: Optional[str] = None
+
+
+class PayDebtRequest(BaseModel):
+    amount: float
 
 
 @router.get("/")
@@ -128,14 +132,59 @@ async def update_debt(
     }
 
 
+@router.post("/{debt_id}/pay")
+async def pay_debt(
+    debt_id: str,
+    req: PayDebtRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Atomically increment amount_paid using $inc.
+    Avoids lost-update races from concurrent quick-pay clicks.
+    """
+    debt = await get_or_404(Debt, debt_id, "Debt not found")
+    if debt.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Debt not found")
+
+    # Atomic increment — no read-modify-write race
+    collection = Debt.get_motor_collection()
+    await collection.update_one(
+        {"_id": debt.id},
+        {"$inc": {"amount_paid": req.amount}},
+    )
+
+    # Fetch updated document
+    debt = await Debt.get(debt_id)
+
+    # Recalculate status
+    if debt.amount_paid >= debt.amount:
+        debt.status = "cleared"
+    elif debt.amount_paid > 0:
+        debt.status = "partial"
+    else:
+        debt.status = "unpaid"
+    await debt.save()
+
+    return {
+        "id": str(debt.id),
+        "label": debt.label,
+        "amount": debt.amount,
+        "amount_paid": debt.amount_paid,
+        "due_date": debt.due_date,
+        "status": debt.status,
+        "notes": debt.notes,
+        "created_at": debt.created_at.isoformat(),
+    }
+
+
 @router.delete("/{debt_id}")
 async def delete_debt(
     debt_id: str,
     user_id: str = Depends(get_current_user_id),
 ):
     """Delete a debt entry."""
-    debt = await Debt.get(debt_id)
-    if not debt or debt.user_id != user_id:
+    debt = await get_or_404(Debt, debt_id, "Debt not found")
+    if debt.user_id != user_id:
         raise HTTPException(status_code=404, detail="Debt not found")
 
     await debt.delete()

@@ -135,6 +135,10 @@ export async function getReflection(moodState: string, ventText?: string) {
   })
 }
 
+export async function getReflections() {
+  return api('/reflect/')
+}
+
 // ─── Journal API ───
 
 export async function getJournalEntries() {
@@ -218,6 +222,13 @@ export async function updateDebt(
 
 export async function deleteDebt(id: string) {
   return api(`/finance/debts/${id}`, { method: 'DELETE' })
+}
+
+export async function payDebt(debtId: string, amount: number) {
+  return api(`/finance/debts/${debtId}/pay`, {
+    method: 'POST',
+    body: JSON.stringify({ amount }),
+  })
 }
 
 export async function getGoals() {
@@ -336,6 +347,13 @@ export async function updateSettings(data: Record<string, unknown>) {
   return api('/settings', {
     method: 'PATCH',
     body: JSON.stringify(data),
+  })
+}
+
+export async function addGoalProgress(goalId: string, amount: number) {
+  return api(`/finance/goals/${goalId}/progress`, {
+    method: 'POST',
+    body: JSON.stringify({ amount }),
   })
 }
 

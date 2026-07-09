@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from typing import Optional
 from beanie import Document
 from pydantic import Field, EmailStr
+from pymongo import IndexModel, ASCENDING
 
 
 class User(Document):
@@ -17,7 +18,7 @@ class User(Document):
     class Settings:
         name = "users"
         indexes = [
-            "email",
+            IndexModel([("email", ASCENDING)], unique=True, name="email_unique_idx"),
             "session_token",
         ]
 

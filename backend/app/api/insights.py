@@ -78,33 +78,9 @@ async def get_finance_insights(user_id: str = Depends(get_current_user_id)):
     """Get financial insights: debt reduction curve + mood correlation."""
     from app.models.debt import Debt
     from app.models.checkin import CheckIn
-    from datetime import datetime, timedelta, timezone
 
     # Get all debts
     debts = await Debt.find(Debt.user_id == user_id).to_list()
-
-    # Debt reduction curve — monthly snapshots
-    debt_history = []
-    if debts:
-        total_original = sum(d.amount for d in debts)
-        total_paid = sum(d.amount_paid for d in debts)
-
-        # Build curve from last 90 days
-        now = datetime.now(timezone.utc)
-        for i in range(90, -1, -1):
-            day = now - timedelta(days=i)
-            date_key = day.strftime("%Y-%m-%d")
-            # Estimate remaining debt on this day
-            # (simplified: we don't track individual payment dates, so we show current state)
-            debt_history.append({
-                "date": date_key,
-                "remaining": total_original - total_paid,
-                "original": total_original,
-            })
-
-        # Snapshot at start (full debt)
-        if debt_history:
-            debt_history[0]["remaining"] = total_original
 
     # Debt stats
     total_debt = sum(d.amount for d in debts)
@@ -157,7 +133,7 @@ async def get_finance_insights(user_id: str = Depends(get_current_user_id)):
         }
 
     return {
-        "debt_history": debt_history,
+
         "debt_stats": {
             "total_debt": total_debt,
             "total_paid": total_paid,

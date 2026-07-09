@@ -1,10 +1,10 @@
 import uuid
 from datetime import timedelta
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, EmailStr
+from fastapi import APIRouter, HTTPException, Depends, Request
+from pydantic import BaseModel, EmailStr, field_validator
 
 from app.models.user import User
-from app.api.deps import get_current_user_id
+from app.api.deps import get_current_user_id, get_or_404
 from app.core.security import (
     hash_password,
     verify_password,
@@ -12,7 +12,8 @@ from app.core.security import (
     decode_access_token,
 )
 from app.core.config import get_settings
-from app.services.email_service import send_welcome_email
+from app.core.rate_limit import limiter
+from app.services.email_service import send_welcome_email, send_password_reset
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -20,6 +21,13 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 class SignupRequest(BaseModel):
     email: EmailStr
     password: str
+
+    @field_validator("password")
+    @classmethod
+    def password_min_length(cls, v: str) -> str:
+        if len(v) < 6:
+            raise ValueError("Password must be at least 6 characters")
+        return v
 
 
 class LoginRequest(BaseModel):
@@ -42,7 +50,8 @@ class ChangePasswordRequest(BaseModel):
 
 
 @router.post("/signup")
-async def signup(req: SignupRequest):
+@limiter.limit("5/minute")
+async def signup(req: SignupRequest, request: Request):
     """Create a new email account."""
     existing = await User.find_one({"email": req.email})
     if existing:
@@ -72,7 +81,8 @@ async def signup(req: SignupRequest):
 
 
 @router.post("/login")
-async def login(req: LoginRequest):
+@limiter.limit("5/minute")
+async def login(req: LoginRequest, request: Request):
     """Log in with email and password."""
     user = await User.find_one({"email": req.email})
     if not user or not user.password_hash:
@@ -95,7 +105,8 @@ async def login(req: LoginRequest):
 
 
 @router.post("/anonymous")
-async def anonymous_signup():
+@limiter.limit("10/minute")
+async def anonymous_signup(request: Request):
     """Create an anonymous session."""
     anonymous_id = str(uuid.uuid4())
 
@@ -119,21 +130,34 @@ async def anonymous_signup():
 
 
 @router.post("/refresh")
-async def refresh_token(token_data: dict = Depends(lambda: None)):
-    """Refresh an existing token. (Placeholder)"""
-    # TODO: Implement refresh with proper dependency injection
-    return {"message": "Token refresh endpoint"}
+@limiter.limit("10/minute")
+async def refresh_token(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """Issue a new JWT for an authenticated user (stateless refresh)."""
+    user = await get_or_404(User, user_id, "User not found")
+    token = create_access_token({"sub": str(user.id)})
+    return {
+        "token": token,
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "is_anonymous": user.is_anonymous,
+            "created_at": user.created_at.isoformat(),
+        },
+    }
 
 
 @router.post("/change-password")
+@limiter.limit("5/minute")
 async def change_password(
     req: ChangePasswordRequest,
+    request: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """Change password for authenticated user."""
-    user = await User.get(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = await get_or_404(User, user_id, "User not found")
 
     if not user.password_hash:
         raise HTTPException(status_code=400, detail="No password set for this account")
@@ -151,14 +175,16 @@ async def change_password(
 
 
 @router.post("/logout")
-async def logout():
+@limiter.limit("10/minute")
+async def logout(request: Request):
     """Log out (invalidate token)."""
     # Stateless JWT — client-side token removal
     return {"message": "Logged out successfully"}
 
 
 @router.post("/forgot-password")
-async def forgot_password(req: ForgotPasswordRequest):
+@limiter.limit("3/minute")
+async def forgot_password(req: ForgotPasswordRequest, request: Request):
     """Send password reset email."""
     user = await User.find_one({"email": req.email})
     if not user:
@@ -177,15 +203,14 @@ async def forgot_password(req: ForgotPasswordRequest):
 
 
 @router.post("/reset-password")
-async def reset_password(req: ResetPasswordRequest):
+@limiter.limit("5/minute")
+async def reset_password(req: ResetPasswordRequest, request: Request):
     """Reset password using token."""
     payload = decode_access_token(req.token)
     if not payload or payload.get("purpose") != "reset":
         raise HTTPException(status_code=400, detail="Invalid or expired reset token")
 
-    user = await User.get(payload["sub"])
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = await get_or_404(User, payload["sub"], "User not found")
 
     user.password_hash = hash_password(req.password)
     await user.save()

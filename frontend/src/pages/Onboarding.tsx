@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowRight, ArrowLeft, Heart, Brain, Sparkles } from 'lucide-react'
 import { useAuthStore } from '@/stores/authStore'
-import { createAnonymousSession } from '@/lib/api'
+import { useCheckinStore } from '@/stores/checkinStore'
+import { createAnonymousSession, createCheckin } from '@/lib/api'
 
 interface OnboardingStep {
   title: string
@@ -33,7 +34,7 @@ const reasons = [
 ]
 
 const moodOptions = [
-  { value: 'heavy', label: 'Carrying something', emoji: '\u{1F494}' },
+  { value: 'at_limit', label: 'Carrying something', emoji: '\u{1F494}' },
   { value: 'managing', label: 'Managing', emoji: '\u{1F34B}' },
   { value: 'mixed', label: 'Mixed feelings', emoji: '\u{1F937}' },
   { value: 'okay', label: "I'm okay", emoji: '\u{270C}' },
@@ -45,9 +46,11 @@ export default function Onboarding() {
   const [reason, setReason] = useState<string | null>(null)
   const [currentMood, setCurrentMood] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
   const authSetUser = useAuthStore((s) => s.setUser)
   const completeOnboarding = useAuthStore((s) => s.setOnboardingComplete)
+  const checkinCompleteCheckin = useCheckinStore((s) => s.completeCheckin)
 
   const handleNext = () => {
     if (step < 2) {
@@ -63,6 +66,7 @@ export default function Onboarding() {
 
   const handleFinish = async () => {
     setIsLoading(true)
+    setError(null)
     try {
       const data = await createAnonymousSession()
       authSetUser(
@@ -70,12 +74,19 @@ export default function Onboarding() {
         data.token,
         'anonymous',
       )
+      // Wire the onboarding mood into a real first check-in
+      if (currentMood) {
+        try {
+          await createCheckin(currentMood)
+          checkinCompleteCheckin(currentMood as any)
+        } catch {
+          // Best-effort — don't block onboarding on check-in failure
+        }
+      }
       completeOnboarding()
       navigate('/app/home')
     } catch {
-      // If server is not ready, still proceed locally
-      completeOnboarding()
-      navigate('/app/home')
+      setError('Unable to connect. Check your internet connection and try again.')
     } finally {
       setIsLoading(false)
     }
@@ -207,6 +218,13 @@ export default function Onboarding() {
                       </>
                     )}
                   </button>
+
+                  {/* Error state */}
+                  {error && (
+                    <p className="text-sm text-soro-danger bg-soro-danger/5 rounded-xl px-4 py-3 text-center">
+                      {error}
+                    </p>
+                  )}
 
                   <div className="relative flex items-center gap-3 py-2">
                     <div className="flex-1 h-px bg-soro-earth/20" />

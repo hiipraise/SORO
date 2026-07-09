@@ -1,11 +1,12 @@
 from typing import Optional
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Depends, Request
+from pydantic import BaseModel, Field
 
 from app.models.circle import PeerCircle, CircleMember
 from app.models.circle_message import CircleMessage
-from app.api.deps import get_current_user_id
+from app.api.deps import get_current_user_id, get_or_404
+from app.core.rate_limit import limiter
 
 router = APIRouter(prefix="/circles", tags=["circles"])
 
@@ -24,7 +25,7 @@ class CreateCircleRequest(BaseModel):
 
 
 class SendMessageRequest(BaseModel):
-    content: str
+    content: str = Field(..., max_length=500)
 
 
 def get_anonymous_name(members: list[dict]) -> str:
@@ -92,9 +93,7 @@ async def get_circle(
     user_id: str = Depends(get_current_user_id),
 ):
     """Get a single circle with details."""
-    circle = await PeerCircle.get(circle_id)
-    if not circle:
-        raise HTTPException(status_code=404, detail="Circle not found")
+    circle = await get_or_404(PeerCircle, circle_id, "Circle not found")
 
     return {
         "id": str(circle.id),
@@ -116,8 +115,10 @@ async def get_circle(
 
 
 @router.post("/")
+@limiter.limit("3/minute")
 async def create_circle(
     req: CreateCircleRequest,
+    request: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """Create a new circle. Creator joins automatically."""
@@ -162,14 +163,14 @@ async def create_circle(
 
 
 @router.post("/{circle_id}/join")
+@limiter.limit("5/minute")
 async def join_circle(
     circle_id: str,
+    request: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """Join a circle. Gets an anonymous display name."""
-    circle = await PeerCircle.get(circle_id)
-    if not circle:
-        raise HTTPException(status_code=404, detail="Circle not found")
+    circle = await get_or_404(PeerCircle, circle_id, "Circle not found")
 
     # Check if already a member
     if any(m["user_id"] == user_id for m in circle.members):
@@ -195,14 +196,14 @@ async def join_circle(
 
 
 @router.post("/{circle_id}/leave")
+@limiter.limit("5/minute")
 async def leave_circle(
     circle_id: str,
+    request: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """Leave a circle."""
-    circle = await PeerCircle.get(circle_id)
-    if not circle:
-        raise HTTPException(status_code=404, detail="Circle not found")
+    circle = await get_or_404(PeerCircle, circle_id, "Circle not found")
 
     # Check membership
     member_index = next(
@@ -227,9 +228,7 @@ async def list_messages(
     user_id: str = Depends(get_current_user_id),
 ):
     """Get messages in a circle (must be a member)."""
-    circle = await PeerCircle.get(circle_id)
-    if not circle:
-        raise HTTPException(status_code=404, detail="Circle not found")
+    circle = await get_or_404(PeerCircle, circle_id, "Circle not found")
 
     if not any(m["user_id"] == user_id for m in circle.members):
         raise HTTPException(status_code=403, detail="You must be a member to view messages")
@@ -252,15 +251,15 @@ async def list_messages(
 
 
 @router.post("/{circle_id}/messages")
+@limiter.limit("10/minute")
 async def send_message(
     circle_id: str,
     req: SendMessageRequest,
+    request: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """Send a message in a circle (must be a member)."""
-    circle = await PeerCircle.get(circle_id)
-    if not circle:
-        raise HTTPException(status_code=404, detail="Circle not found")
+    circle = await get_or_404(PeerCircle, circle_id, "Circle not found")
 
     # Find member's display name
     member = next(

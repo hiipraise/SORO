@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { ArrowLeft, Send, Users, LogOut, UserPlus } from 'lucide-react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import PageTransition from '@/components/layout/PageTransition'
 import Button from '@/components/shared/Button'
 import Textarea from '@/components/shared/Textarea'
@@ -51,16 +52,32 @@ function getRelativeTime(dateStr: string): string {
 export default function CircleDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const [circle, setCircle] = useState<CircleData | null>(null)
-  const [messages, setMessages] = useState<MessageData[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false)
   const [newMessage, setNewMessage] = useState('')
   const [sending, setSending] = useState(false)
-  const [joining, setJoining] = useState(false)
   const [hasJoined, setHasJoined] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const { addToast } = useToastStore()
+  const queryClient = useQueryClient()
+
+  const { data: circle, isLoading, refetch: refetchCircle } = useQuery<CircleData>({
+    queryKey: ['circle', id],
+    queryFn: () => getCircle(id!) as Promise<CircleData>,
+    enabled: !!id,
+  })
+
+  // Track hasJoined from circle data
+  useEffect(() => {
+    if (circle) {
+      setHasJoined(circle.has_joined)
+    }
+  }, [circle])
+
+  const { data: messages = [], isError: messagesError } = useQuery<MessageData[]>({
+    queryKey: ['circle-messages', id],
+    queryFn: () => getCircleMessages(id!) as Promise<MessageData[]>,
+    enabled: !!hasJoined && !!id,
+    refetchInterval: 10000,
+  })
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -70,87 +87,48 @@ export default function CircleDetail() {
     scrollToBottom()
   }, [messages])
 
-  const loadCircle = useCallback(async () => {
-    if (!id) return
-    try {
-      const data = await getCircle(id) as CircleData
-      setCircle(data)
-      setHasJoined(data.has_joined)
-    } catch {
-      addToast('Circle not found', 'error')
-      navigate('/app/circles')
-    } finally {
-      setIsLoading(false)
-    }
-  }, [id, navigate, addToast])
-
-  const loadMessages = useCallback(async () => {
-    if (!id) return
-    setIsLoadingMessages(true)
-    try {
-      const data = await getCircleMessages(id) as MessageData[]
-      setMessages(data)
-    } catch {
-      // Silent
-    } finally {
-      setIsLoadingMessages(false)
-    }
-  }, [id])
-
-  useEffect(() => {
-    loadCircle()
-  }, [loadCircle])
-
-  useEffect(() => {
-    if (hasJoined) {
-      loadMessages()
-      // Poll for new messages every 10 seconds
-      const interval = setInterval(loadMessages, 10000)
-      return () => clearInterval(interval)
-    }
-  }, [hasJoined, loadMessages])
-
-  const handleJoin = async () => {
-    if (!id) return
-    setJoining(true)
-    try {
-      const data = await joinCircle(id) as any
+  const joinMutation = useMutation({
+    mutationFn: () => joinCircle(id!),
+    onSuccess: (data: any) => {
       setHasJoined(true)
+      queryClient.invalidateQueries({ queryKey: ['circle', id] })
       addToast(`Joined as ${data.display_name}`, 'success')
-      loadCircle()
-      loadMessages()
-    } catch (err: any) {
+    },
+    onError: (err: any) => {
       addToast(err?.message || 'Failed to join', 'error')
-    } finally {
-      setJoining(false)
-    }
-  }
+    },
+  })
 
-  const handleLeave = async () => {
-    if (!id) return
-    try {
-      await leaveCircle(id)
+  const leaveMutation = useMutation({
+    mutationFn: () => leaveCircle(id!),
+    onSuccess: () => {
       setHasJoined(false)
-      setMessages([])
+      queryClient.invalidateQueries({ queryKey: ['circle', id] })
+      queryClient.invalidateQueries({ queryKey: ['circle-messages', id] })
       addToast('Left circle', 'info')
-      loadCircle()
-    } catch {
+    },
+    onError: () => {
       addToast('Failed to leave circle', 'error')
-    }
-  }
+    },
+  })
 
-  const handleSend = async () => {
+  const sendMutation = useMutation({
+    mutationFn: (content: string) => sendCircleMessage(id!, content),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['circle-messages', id] })
+      setNewMessage('')
+    },
+    onError: () => {
+      addToast('Failed to send message', 'error')
+    },
+  })
+
+  const handleSend = () => {
     if (!id || !newMessage.trim()) return
     setSending(true)
-    try {
-      const data = await sendCircleMessage(id, newMessage.trim()) as MessageData
-      setMessages([...messages, data])
-      setNewMessage('')
-    } catch {
-      addToast('Failed to send message', 'error')
-    } finally {
-      setSending(false)
-    }
+    sendMutation.mutate(newMessage.trim(), {
+      onSettled: () => setSending(false),
+    })
   }
 
   if (isLoading) {
@@ -182,7 +160,7 @@ export default function CircleDetail() {
 
           {hasJoined && (
             <button
-              onClick={handleLeave}
+              onClick={() => leaveMutation.mutate()}
               className="flex items-center gap-1.5 text-xs text-soro-fade hover:text-soro-danger transition-colors px-3 py-1.5 rounded-lg hover:bg-soro-danger/5"
             >
               <LogOut size={14} />
@@ -237,8 +215,8 @@ export default function CircleDetail() {
               You'll get an anonymous name like "Voice 1" or "Voice 2". No one will know who you are.
             </p>
             <Button
-              onClick={handleJoin}
-              isLoading={joining}
+              onClick={() => joinMutation.mutate()}
+              isLoading={joinMutation.isPending}
               disabled={circle.is_full}
               leftIcon={<UserPlus size={18} />}
               size="lg"
@@ -250,9 +228,11 @@ export default function CircleDetail() {
           <>
             {/* Messages */}
             <div className="flex-1 overflow-y-auto space-y-3 mb-4 pr-1">
-              {isLoadingMessages ? (
-                <div className="flex justify-center py-8">
-                  <Spinner />
+              {messages.length === 0 && messagesError ? (
+                <div className="text-center py-12">
+                  <p className="text-sm text-soro-fade">
+                    Could not load messages. Check your connection.
+                  </p>
                 </div>
               ) : messages.length === 0 ? (
                 <div className="text-center py-12">
@@ -261,33 +241,43 @@ export default function CircleDetail() {
                   </p>
                 </div>
               ) : (
-                messages.map((msg, i) => {
-                  const isFirstOfGroup =
-                    i === 0 || messages[i - 1].display_name !== msg.display_name
-
-                  return (
-                    <motion.div
-                      key={msg.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      {isFirstOfGroup && (
-                        <p className="text-[10px] font-medium text-soro-ember/70 mb-1 mt-3 first:mt-0">
-                          {msg.display_name}
-                        </p>
-                      )}
-                      <div className="glass-card rounded-2xl px-4 py-2.5 inline-block max-w-[85%] border-soro-earth/10">
-                        <p className="text-sm text-soro-mist leading-relaxed whitespace-pre-line">
-                          {msg.content}
-                        </p>
-                      </div>
-                      <p className="text-[10px] text-soro-fade/40 mt-0.5 ml-1">
-                        {getRelativeTime(msg.created_at)}
+                <>
+                  {messagesError && (
+                    <div className="flex items-center justify-center gap-2 py-2">
+                      <div className="w-2 h-2 rounded-full bg-soro-danger/60" />
+                      <p className="text-xs text-soro-fade/60">
+                        Could not refresh messages. Your last messages are still shown.
                       </p>
-                    </motion.div>
-                  )
-                })
+                    </div>
+                  )}
+                  {messages.map((msg, i) => {
+                    const isFirstOfGroup =
+                      i === 0 || messages[i - 1].display_name !== msg.display_name
+
+                    return (
+                      <motion.div
+                        key={msg.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        {isFirstOfGroup && (
+                          <p className="text-[10px] font-medium text-soro-ember/70 mb-1 mt-3 first:mt-0">
+                            {msg.display_name}
+                          </p>
+                        )}
+                        <div className="glass-card rounded-2xl px-4 py-2.5 inline-block max-w-[85%] border-soro-earth/10">
+                          <p className="text-sm text-soro-mist leading-relaxed whitespace-pre-line">
+                            {msg.content}
+                          </p>
+                        </div>
+                        <p className="text-[10px] text-soro-fade/40 mt-0.5 ml-1">
+                          {getRelativeTime(msg.created_at)}
+                        </p>
+                      </motion.div>
+                    )
+                  })}
+                </>
               )}
               <div ref={messagesEndRef} />
             </div>

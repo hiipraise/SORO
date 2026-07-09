@@ -1,10 +1,12 @@
 from typing import Optional
 from datetime import datetime, timezone
-from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Depends, Request
+from pydantic import BaseModel, Field
 
 from app.models.community_post import CommunityPost
-from app.api.deps import get_current_user_id
+from app.api.deps import get_current_user_id, get_or_404
+from app.core.rate_limit import limiter
+from app.core.crisis import detect_crisis
 
 router = APIRouter(prefix="/posts", tags=["community"])
 
@@ -13,15 +15,9 @@ VALID_TOPICS = [
     "Relationships", "Faith", "General",
 ]
 
-CRISIS_KEYWORDS = [
-    "kill myself", "end it", "suicide", "don't want to live",
-    "not worth living", "want to die", "hurt myself",
-    "end my life", "take my life", "better off dead",
-]
-
 
 class CreatePostRequest(BaseModel):
-    content: str
+    content: str = Field(..., max_length=2000)
     topic_tag: Optional[str] = None
 
 
@@ -59,13 +55,15 @@ async def list_posts(
 
 
 @router.post("/")
+@limiter.limit("5/minute")
 async def create_post(
     req: CreatePostRequest,
+    request: Request,
     user_id: str = Depends(get_current_user_id),
 ):
     """Create a community post. Crisis content is flagged, never shown publicly."""
     # Crisis check — redirect, never publish
-    if any(kw in req.content.lower() for kw in CRISIS_KEYWORDS):
+    if detect_crisis(req.content):
         return {
             "id": None,
             "approved": False,
@@ -104,12 +102,14 @@ async def create_post(
 
 
 @router.post("/{post_id}/react")
+@limiter.limit("10/minute")
 async def react_to_post(
     post_id: str,
     req: ReactRequest,
+    request: Request,
     user_id: str = Depends(get_current_user_id),
 ):
-    """React to a community post."""
+    """React to a community post. Uses atomic $inc to prevent lost updates."""
     valid_reactions = {"feel_this", "you_go_make_am", "dey_with_you"}
     if req.reaction not in valid_reactions:
         raise HTTPException(
@@ -117,9 +117,7 @@ async def react_to_post(
             detail=f"Invalid reaction. Must be one of: {', '.join(valid_reactions)}",
         )
 
-    post = await CommunityPost.get(post_id)
-    if not post:
-        raise HTTPException(status_code=404, detail="Post not found")
+    post = await get_or_404(CommunityPost, post_id, "Post not found")
 
     if not post.is_approved:
         raise HTTPException(status_code=404, detail="Post not found")
@@ -127,11 +125,15 @@ async def react_to_post(
     if post.expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=410, detail="Post has expired")
 
-    # Increment reaction count
-    reactions = post.reactions or {}
-    reactions[req.reaction] = reactions.get(req.reaction, 0) + 1
-    post.reactions = reactions
-    await post.save()
+    # Atomic $inc on the nested reactions field — no read-modify-write race
+    collection = CommunityPost.get_motor_collection()
+    await collection.update_one(
+        {"_id": post.id},
+        {"$inc": {f"reactions.{req.reaction}": 1}},
+    )
+
+    # Fetch updated document to return fresh counts
+    post = await CommunityPost.get(post_id)
 
     return {
         "id": str(post.id),

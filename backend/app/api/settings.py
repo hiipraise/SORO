@@ -4,7 +4,10 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from app.models.user import User
-from app.api.deps import get_current_user_id
+from app.api.deps import get_current_user_id, get_or_404
+from app.core.config import get_settings
+
+cfg = get_settings()
 
 router = APIRouter(tags=["settings"])
 
@@ -15,12 +18,19 @@ class UpdateSettingsRequest(BaseModel):
     notification_reminder: Optional[bool] = None
 
 
+@router.get("/crisis-info")
+async def get_crisis_info():
+    """Return crisis helpline info from backend config (no auth required)."""
+    return {
+        "number": cfg.crisis_number,
+        "organization": cfg.crisis_organization,
+    }
+
+
 @router.get("/settings")
 async def get_settings(user_id: str = Depends(get_current_user_id)):
     """Get user settings."""
-    user = await User.get(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = await get_or_404(User, user_id, "User not found")
 
     return {
         "id": str(user.id),
@@ -38,11 +48,12 @@ async def update_settings(
     user_id: str = Depends(get_current_user_id),
 ):
     """Update user settings."""
-    user = await User.get(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = await get_or_404(User, user_id, "User not found")
 
-    if req.email is not None:
+    if req.email is not None and req.email != user.email:
+        existing = await User.find_one({"email": req.email})
+        if existing:
+            raise HTTPException(status_code=409, detail="Email already in use")
         user.email = req.email
     if req.notification_anchor is not None:
         user.notification_anchor = req.notification_anchor
@@ -56,9 +67,7 @@ async def update_settings(
 @router.get("/account/export")
 async def export_account_data(user_id: str = Depends(get_current_user_id)):
     """Export all user data as JSON."""
-    user = await User.get(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = await get_or_404(User, user_id, "User not found")
 
     from app.models.checkin import CheckIn
     from app.models.journal_entry import JournalEntry
@@ -99,7 +108,7 @@ async def export_account_data(user_id: str = Depends(get_current_user_id)):
         "reflections": [
             {
                 "id": str(r.id),
-                "content": r.content[:500],
+                "content": r.ai_response[:500],
                 "created_at": r.created_at.isoformat(),
             }
             for r in reflections
@@ -110,18 +119,37 @@ async def export_account_data(user_id: str = Depends(get_current_user_id)):
 @router.delete("/account")
 async def delete_account(user_id: str = Depends(get_current_user_id)):
     """Delete user account and all associated data."""
-    user = await User.get(user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
+    user = await get_or_404(User, user_id, "User not found")
 
-    # Delete all user data
+    # Delete all user-owned data
     from app.models.checkin import CheckIn
     from app.models.reflection import Reflection
     from app.models.journal_entry import JournalEntry
+    from app.models.debt import Debt
+    from app.models.goal import Goal
+    from app.models.community_post import CommunityPost
 
     await CheckIn.find(CheckIn.user_id == user_id).delete()
     await Reflection.find(Reflection.user_id == user_id).delete()
     await JournalEntry.find(JournalEntry.user_id == user_id).delete()
+    await Debt.find(Debt.user_id == user_id).delete()
+    await Goal.find(Goal.user_id == user_id).delete()
+    await CommunityPost.find(CommunityPost.user_id == user_id).delete()
+
+    # Remove user from all PeerCircles they've joined
+    from app.models.circle import PeerCircle
+
+    await PeerCircle.update_many(
+        {"members.user_id": user_id},
+        {"$pull": {"members": {"user_id": user_id}}},
+    )
+
+    # Anonymize CircleMessages (preserve conversation flow, sever user link)
+    from app.models.circle_message import CircleMessage
+
+    await CircleMessage.find(CircleMessage.user_id == user_id).update_many(
+        {"$set": {"user_id": "", "display_name": "[deleted]"}},
+    )
 
     # Delete user
     await user.delete()

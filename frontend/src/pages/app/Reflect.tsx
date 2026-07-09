@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useMutation } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Sparkles, BookOpen, Check, RefreshCw, AlertTriangle } from 'lucide-react'
 import PageTransition from '@/components/layout/PageTransition'
@@ -7,6 +8,7 @@ import Button from '@/components/shared/Button'
 import Spinner from '@/components/shared/Spinner'
 import { useCheckinStore, MOOD_LABELS, MOOD_COLORS, type MoodState } from '@/stores/checkinStore'
 import { getReflection, createJournalEntry } from '@/lib/api'
+import { CRISIS_NUMBER, CRISIS_ORGANIZATION } from '@/lib/crisis'
 import { useToastStore } from '@/components/shared/Toast'
 
 const OFFLINE_MESSAGE =
@@ -28,11 +30,37 @@ const MOOD_BASED_MESSAGES: Record<string, string> = {
 export default function Reflect() {
   const { currentMood, ventText } = useCheckinStore()
   const [reflection, setReflection] = useState<string | null>(null)
-  const [isGenerating, setIsGenerating] = useState(true)
-  const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
   const navigate = useNavigate()
   const addToast = useToastStore((s) => s.addToast)
+
+  const generateMutation = useMutation({
+    mutationFn: ({ mood, vent }: { mood: string; vent: string }) => getReflection(mood, vent),
+    onSuccess: (data) => {
+      setReflection(data.reflection)
+    },
+    onError: () => {
+      // Fallback to mood-based message
+      setTimeout(() => {
+        setReflection(
+          MOOD_BASED_MESSAGES[currentMood as string] ||
+          'Thank you for checking in. Your feelings are valid and matter.',
+        )
+      }, 1000)
+    },
+  })
+
+  const saveMutation = useMutation({
+    mutationFn: (data: { title: string; content: string; mood_tag?: string }) =>
+      createJournalEntry(data),
+    onSuccess: () => {
+      addToast('Reflection saved to journal', 'success')
+      navigate('/app/journal')
+    },
+    onError: () => {
+      addToast('Could not save. Check your connection and try again.', 'error')
+    },
+  })
 
   useEffect(() => {
     if (!currentMood) {
@@ -43,56 +71,34 @@ export default function Reflect() {
     generateReflection()
   }, [currentMood])
 
-  const generateReflection = async () => {
-    setIsGenerating(true)
+  const generateReflection = () => {
     setError('')
+    setReflection(null)
 
-    try {
-      if (navigator.onLine) {
-        const data = await getReflection(currentMood as string, ventText)
-        setReflection(data.reflection)
-      } else {
-        // Offline fallback
-        setTimeout(() => {
-          setReflection(OFFLINE_MESSAGE)
-        }, 1500)
-      }
-    } catch {
-      // Fallback to mood-based message
+    if (navigator.onLine) {
+      generateMutation.mutate({ mood: currentMood as string, vent: ventText })
+    } else {
+      // Offline fallback
       setTimeout(() => {
-        setReflection(
-          MOOD_BASED_MESSAGES[currentMood as string] ||
-          'Thank you for checking in. Your feelings are valid and matter.',
-        )
-      }, 1000)
-    } finally {
-      setIsGenerating(false)
+        setReflection(OFFLINE_MESSAGE)
+      }, 1500)
     }
   }
 
-  const handleSaveToJournal = async () => {
+  const handleSaveToJournal = () => {
     if (!reflection) return
-
-    setIsSaving(true)
-    try {
-      await createJournalEntry({
-        title: `Reflection — ${MOOD_LABELS[currentMood as MoodState] || 'Check-in'}`,
-        content: reflection,
-        mood_tag: currentMood || undefined,
-      })
-      addToast('Reflection saved to journal', 'success')
-      navigate('/app/journal')
-    } catch {
-      addToast('Could not save. Check your connection and try again.', 'error')
-    } finally {
-      setIsSaving(false)
-    }
+    saveMutation.mutate({
+      title: `Reflection — ${MOOD_LABELS[currentMood as MoodState] || 'Check-in'}`,
+      content: reflection,
+      mood_tag: currentMood || undefined,
+    })
   }
 
   if (!currentMood) return null
 
   const moodColor = MOOD_COLORS[currentMood as MoodState]
   const moodLabel = MOOD_LABELS[currentMood as MoodState]
+  const isGenerating = generateMutation.isPending
 
   return (
     <PageTransition>
@@ -156,7 +162,7 @@ export default function Reflect() {
 
               <div className="mt-6 pt-4 border-t border-soro-earth/10">
                 <p className="text-xs text-soro-fade/60 italic">
-                  SORO is not a therapist. If you're in crisis, please reach out to MANI helpline: 08111909909
+                  SORO is not a therapist. If you're in crisis, please reach out to {CRISIS_ORGANIZATION}: {CRISIS_NUMBER}
                 </p>
               </div>
             </div>
@@ -170,7 +176,7 @@ export default function Reflect() {
             fullWidth
             size="lg"
             variant="primary"
-            isLoading={isSaving}
+            isLoading={saveMutation.isPending}
             leftIcon={<BookOpen size={18} />}
           >
             Save to journal

@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from app.models.checkin import CheckIn
-from app.api.deps import get_current_user_id
+from app.api.deps import get_current_user_id, get_or_404
 
 router = APIRouter(prefix="/checkins", tags=["checkins"])
 
@@ -36,8 +36,8 @@ async def list_checkins(user_id: str = Depends(get_current_user_id)):
 @router.get("/{checkin_id}")
 async def get_checkin(checkin_id: str, user_id: str = Depends(get_current_user_id)):
     """Get a single check-in."""
-    checkin = await CheckIn.get(checkin_id)
-    if not checkin or checkin.user_id != user_id:
+    checkin = await get_or_404(CheckIn, checkin_id, "Check-in not found")
+    if checkin.user_id != user_id:
         raise HTTPException(status_code=404, detail="Check-in not found")
 
     return {
