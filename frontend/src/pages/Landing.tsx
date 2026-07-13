@@ -14,7 +14,11 @@ import {
 import InstallPrompt from "@/components/pwa/InstallPrompt";
 import CrisisButton from "@/components/ui/CrisisButton";
 import Card from "@/components/shared/Card";
-import { ScribbleCircle, ScribbleUnderline, MarkerHighlightBehind } from "@/components/shared/ScribbleHighlight";
+import {
+  ScribbleCircle,
+  ScribbleUnderline,
+  MarkerHighlightBehind,
+} from "@/components/shared/ScribbleHighlight";
 import {
   StudentAvatar,
   GradAvatar,
@@ -78,14 +82,6 @@ const audienceCards = [
     span: "",
   },
   {
-    title: "In Debt",
-    description: "Small money, big problems. Trying to find a way out.",
-    Avatar: DebtAvatar,
-    image: "in_debt.jpg",
-    fallbackBg: "from-soro-earth/20 to-soro-earth/5",
-    span: "",
-  },
-  {
     title: "Grieving",
     description: "Lost someone. Lost direction. Need space to process.",
     Avatar: GrievingAvatar,
@@ -93,10 +89,18 @@ const audienceCards = [
     fallbackBg: "from-soro-info/15 to-soro-info/5",
     span: "md:row-span-2",
   },
+  {
+    title: "In Debt",
+    description: "Small money, big problems. Trying to find a way out.",
+    Avatar: DebtAvatar,
+    image: "in_debt.jpg",
+    fallbackBg: "from-soro-earth/20 to-soro-earth/5",
+    span: "",
+  },
 ];
 
 export default function Landing() {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-soro-deep">
@@ -186,7 +190,10 @@ export default function Landing() {
               <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold text-soro-mist leading-tight mb-6">
                 You dey carry
                 <br />
-                <ScribbleCircle className="text-gradient">something heavy</ScribbleCircle> today?
+                <ScribbleCircle className="text-gradient">
+                  something heavy
+                </ScribbleCircle>{" "}
+                today?
               </h1>
 
               <p className="text-lg md:text-xl text-soro-fade/80 max-w-xl mb-8 leading-relaxed">
@@ -226,15 +233,40 @@ export default function Landing() {
               {/* Warm gradient silhouette */}
               <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-soro-ember/20 via-soro-gold/10 to-soro-surface/50 overflow-hidden border border-soro-earth/15">
                 {/* Abstract person silhouette */}
-                <svg viewBox="0 0 400 400" fill="none" className="w-full h-full opacity-40" aria-hidden>
+                <svg
+                  viewBox="0 0 400 400"
+                  fill="none"
+                  className="w-full h-full opacity-40"
+                  aria-hidden
+                >
                   {/* Head */}
-                  <ellipse cx="200" cy="120" rx="55" ry="60" fill="url(#hero-grad)" />
+                  <ellipse
+                    cx="200"
+                    cy="120"
+                    rx="55"
+                    ry="60"
+                    fill="url(#hero-grad)"
+                  />
                   {/* Body */}
-                  <path d="M130 220 C130 170 270 170 270 220 L280 320 C280 350 120 350 120 320 L130 220Z" fill="url(#hero-grad)" />
+                  <path
+                    d="M130 220 C130 170 270 170 270 220 L280 320 C280 350 120 350 120 320 L130 220Z"
+                    fill="url(#hero-grad)"
+                  />
                   {/* Phone arm */}
-                  <path d="M270 240 C310 260 340 300 330 310 C320 320 300 280 270 260Z" fill="url(#hero-grad)" />
+                  <path
+                    d="M270 240 C310 260 340 300 330 310 C320 320 300 280 270 260Z"
+                    fill="url(#hero-grad)"
+                  />
                   {/* Phone */}
-                  <rect x="318" y="274" width="20" height="38" rx="3" fill="url(#hero-grad)" opacity="0.6" />
+                  <rect
+                    x="318"
+                    y="274"
+                    width="20"
+                    height="38"
+                    rx="3"
+                    fill="url(#hero-grad)"
+                    opacity="0.6"
+                  />
                   {/* Gradient definition */}
                   <defs>
                     <linearGradient id="hero-grad" x1="0" y1="0" x2="1" y2="1">
@@ -262,31 +294,32 @@ export default function Landing() {
                 The hard truths nobody talks about
               </h2>
               <p className="text-soro-fade text-base max-w-lg mx-auto">
-                <ScribbleUnderline>In Nigeria, mental health is a conversation we don't have — and financial stress makes it worse.</ScribbleUnderline>
+                <ScribbleUnderline>
+                  In Nigeria, mental health is a conversation we don't have —
+                  and financial stress makes it worse.
+                </ScribbleUnderline>
               </p>
             </div>
 
             <motion.div
-                variants={staggerContainer}
-                initial="initial"
-                whileInView="animate"
-                viewport={{ once: true }}
-                className="grid md:grid-cols-3 gap-4"
-              >
+              variants={staggerContainer}
+              initial="initial"
+              whileInView="animate"
+              viewport={{ once: true }}
+              className="grid md:grid-cols-3 gap-4"
+            >
               {problemStatements.map((item, i) => (
-                <motion.div
-                  key={i}
-                  variants={staggerItem}
-                >
+                <motion.div key={i} variants={staggerItem}>
                   <Card padding="lg">
-                  <div className="w-10 h-10 rounded-xl bg-soro-ember/10 flex items-center justify-center mb-4">
-                    <item.icon size={20} className="text-soro-ember" />
-                  </div>
-                  <p className="text-sm text-soro-mist leading-relaxed">
-                    {item.text}
-                  </p>                  </Card>
+                    <div className="w-10 h-10 rounded-xl bg-soro-ember/10 flex items-center justify-center mb-4">
+                      <item.icon size={20} className="text-soro-ember" />
+                    </div>
+                    <p className="text-sm text-soro-mist leading-relaxed">
+                      {item.text}
+                    </p>{" "}
+                  </Card>
                 </motion.div>
-                ))}
+              ))}
             </motion.div>
           </div>
         </section>
@@ -299,24 +332,33 @@ export default function Landing() {
                 Two doors. One room.
               </h2>
               <p className="text-soro-fade text-base max-w-lg mx-auto">
-                <ScribbleUnderline>You can't fix someone's finances if their mind is underwater. You can't fix someone's mind if they're drowning financially.</ScribbleUnderline>
+                <ScribbleUnderline>
+                  You can't fix someone's finances if their mind is underwater.
+                  You can't fix someone's mind if they're drowning financially.
+                </ScribbleUnderline>
               </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
               {/* Mental Wellness — calming radial glow texture */}
-              <Card variant="safe" padding="lg" className="relative overflow-hidden">
+              <Card
+                variant="safe"
+                padding="lg"
+                className="relative overflow-hidden"
+              >
                 {/* Calming organic background texture */}
                 <div
                   className="absolute -top-20 -right-20 w-60 h-60 rounded-full opacity-20 pointer-events-none"
                   style={{
-                    background: 'radial-gradient(circle at 30% 50%, rgba(46, 139, 87, 0.3) 0%, transparent 60%)',
+                    background:
+                      "radial-gradient(circle at 30% 50%, rgba(46, 139, 87, 0.3) 0%, transparent 60%)",
                   }}
                 />
                 <div
                   className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full opacity-10 pointer-events-none"
                   style={{
-                    background: 'radial-gradient(circle at 70% 50%, rgba(46, 139, 87, 0.2) 0%, transparent 50%)',
+                    background:
+                      "radial-gradient(circle at 70% 50%, rgba(46, 139, 87, 0.2) 0%, transparent 50%)",
                   }}
                 />
                 {/* Content (relative to sit above textures) */}
@@ -347,13 +389,18 @@ export default function Landing() {
               </Card>
 
               {/* Financial Resilience — subtle chart-grid texture */}
-              <Card variant="highlight" padding="lg" className="relative overflow-hidden">
+              <Card
+                variant="highlight"
+                padding="lg"
+                className="relative overflow-hidden"
+              >
                 {/* Dot-grid chart texture */}
                 <div
                   className="absolute inset-0 pointer-events-none opacity-30"
                   style={{
-                    backgroundImage: 'radial-gradient(circle, rgba(245, 200, 66, 0.15) 1px, transparent 1px)',
-                    backgroundSize: '24px 24px',
+                    backgroundImage:
+                      "radial-gradient(circle, rgba(245, 200, 66, 0.15) 1px, transparent 1px)",
+                    backgroundSize: "24px 24px",
                   }}
                 />
                 {/* Chart-like rising line accent */}
@@ -413,17 +460,19 @@ export default function Landing() {
                 How it works
               </h2>
               <p className="text-soro-fade text-base">
-                <ScribbleUnderline>3 steps. 60 seconds. No pressure.</ScribbleUnderline>
+                <ScribbleUnderline>
+                  3 steps. 60 seconds. No pressure.
+                </ScribbleUnderline>
               </p>
             </div>
 
             <motion.div
-                variants={staggerContainer}
-                initial="initial"
-                whileInView="animate"
-                viewport={{ once: true }}
-                className="grid md:grid-cols-3 gap-6"
-              >
+              variants={staggerContainer}
+              initial="initial"
+              whileInView="animate"
+              viewport={{ once: true }}
+              className="grid md:grid-cols-3 gap-6"
+            >
               {howItWorks.map((item, i) => (
                 <motion.div
                   key={i}
@@ -441,7 +490,7 @@ export default function Landing() {
                   </h3>
                   <p className="text-sm text-soro-fade">{item.description}</p>
                 </motion.div>
-                ))}
+              ))}
             </motion.div>
           </div>
         </section>
@@ -454,7 +503,9 @@ export default function Landing() {
                 Who SORO is for
               </h2>
               <p className="text-soro-fade text-base">
-                <ScribbleUnderline>Built for Nigerian youth who are carrying something.</ScribbleUnderline>
+                <ScribbleUnderline>
+                  Built for Nigerian youth who are carrying something.
+                </ScribbleUnderline>
               </p>
             </div>
 
@@ -463,7 +514,7 @@ export default function Landing() {
               initial="initial"
               whileInView="animate"
               viewport={{ once: true }}
-              className="grid grid-cols-2 md:grid-cols-4 auto-rows-[140px] gap-4"
+              className="grid grid-cols-2 md:grid-cols-3 auto-rows-[140px] gap-4"
             >
               {audienceCards.map((card, i) => (
                 <motion.div
@@ -477,14 +528,18 @@ export default function Landing() {
                     className="relative h-full rounded-2xl overflow-hidden border border-soro-earth/15 bg-soro-surface/60 group cursor-default"
                   >
                     {/* Base layer: gradient fallback (always rendered, shows if image fails) */}
-                    <div className={`absolute inset-0 bg-gradient-to-br ${card.fallbackBg} opacity-60`} />
+                    <div
+                      className={`absolute inset-0 bg-gradient-to-br ${card.fallbackBg} opacity-60`}
+                    />
                     {/* Top layer: actual image (fades out on error, revealing gradient) */}
                     <img
                       src={`/assets/img/${card.image}`}
                       alt={card.title}
                       className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                       loading="lazy"
-                      onError={(e) => { e.currentTarget.style.opacity = '0' }}
+                      onError={(e) => {
+                        e.currentTarget.style.opacity = "0";
+                      }}
                     />
                     {/* Dark gradient overlay for text readability */}
                     <div className="absolute inset-0 bg-gradient-to-t from-soro-deep/95 via-soro-deep/60 to-soro-deep/20" />
@@ -526,7 +581,9 @@ export default function Landing() {
             >
               <h2 className="text-2xl md:text-4xl font-display font-bold text-soro-mist mb-4">
                 E go better —{" "}
-                <MarkerHighlightBehind className="text-gradient">but first, say it</MarkerHighlightBehind>
+                <MarkerHighlightBehind className="text-gradient">
+                  but first, say it
+                </MarkerHighlightBehind>
               </h2>
               <p className="text-soro-fade text-base mb-8 max-w-lg mx-auto">
                 You don't have to carry it alone. SORO is free, anonymous, and
@@ -556,8 +613,9 @@ export default function Landing() {
           <p className="text-xs text-soro-fade max-w-md mx-auto leading-relaxed">
             Built in Lagos by someone who lived it.
             <br />
-            Free forever. Supported by non-intrusive ads, never in your check-ins or journal.
-            No premium. No paywall. Just a hand when you need it.
+            Free forever. Supported by non-intrusive ads, never in your
+            check-ins or journal. No premium. No paywall. Just a hand when you
+            need it.
           </p>
           <div className="mt-6 text-xs text-soro-fade/50">
             &copy; {new Date().getFullYear()} SORO. All rights reserved.
