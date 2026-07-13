@@ -1,16 +1,27 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowRight,
+  Menu,
+  X,
   Shield,
   Brain,
   LineChart,
   Heart,
   Sparkles,
-  Users,
 } from "lucide-react";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
 import CrisisButton from "@/components/ui/CrisisButton";
+import Card from "@/components/shared/Card";
+import { ScribbleCircle, ScribbleUnderline, MarkerHighlightBehind } from "@/components/shared/ScribbleHighlight";
+import {
+  StudentAvatar,
+  GradAvatar,
+  DebtAvatar,
+  GrievingAvatar,
+} from "@/components/ui/PersonaAvatars";
+import { staggerContainer, staggerItem } from "@/lib/motion";
 
 const problemStatements = [
   {
@@ -53,49 +64,108 @@ const audienceCards = [
     title: "Student",
     description:
       "Juggling school, family pressure, and uncertainty about tomorrow.",
+    Avatar: StudentAvatar,
+    image: "student.jpg",
+    fallbackBg: "from-soro-ember/20 to-soro-ember/5",
+    span: "md:row-span-2",
   },
   {
     title: "Young Grad",
     description: "First job, low pay, high expectations from everyone.",
+    Avatar: GradAvatar,
+    image: "young_grad.jpg",
+    fallbackBg: "from-soro-gold/15 to-soro-gold/5",
+    span: "",
   },
   {
     title: "In Debt",
     description: "Small money, big problems. Trying to find a way out.",
+    Avatar: DebtAvatar,
+    image: "in_debt.jpg",
+    fallbackBg: "from-soro-earth/20 to-soro-earth/5",
+    span: "",
   },
   {
     title: "Grieving",
     description: "Lost someone. Lost direction. Need space to process.",
+    Avatar: GrievingAvatar,
+    image: "grieving.jpg",
+    fallbackBg: "from-soro-info/15 to-soro-info/5",
+    span: "md:row-span-2",
   },
 ];
 
 export default function Landing() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+
   return (
     <div className="min-h-screen bg-soro-deep">
-      {/* Navigation */}
-      <header className="fixed top-0 left-0 right-0 z-40 glass-card rounded-none border-x-0 border-t-0">
-        <div className="max-w-6xl mx-auto px-4 md:px-8 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <img src="/soro.png" alt="SORO" className="w-8 h-8" />
-            <span className="font-display text-lg font-semibold text-soro-mist">
+      {/* Floating Navigation */}
+      <header className="fixed top-4 left-1/2 -translate-x-1/2 z-40 w-[min(90vw,900px)] rounded-full bg-soro-surface/80 backdrop-blur-xl border border-soro-earth/15 shadow-lg shadow-black/20">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-2.5">
+          <div className="flex items-center gap-2 shrink-0">
+            <img src="/soro.png" alt="SORO" className="w-7 h-7 md:w-8 md:h-8" />
+            <span className="font-display text-base md:text-lg font-semibold text-soro-mist">
               SORO
             </span>
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* Desktop nav links */}
+          <nav className="hidden sm:flex items-center gap-2">
             <Link
               to="/auth/login"
-              className="text-sm text-soro-fade hover:text-soro-mist transition-colors px-3 py-1.5"
+              className="btn-ember px-3 py-1.5 rounded-full text-sm"
             >
               Log in
             </Link>
             <Link
               to="/auth/signup"
-              className="btn-ember px-4 py-2 rounded-xl text-sm font-semibold"
+              className="btn-ember px-4 py-2 rounded-full text-sm font-semibold"
             >
               Start for free
             </Link>
-          </div>
+          </nav>
+
+          {/* Mobile hamburger toggle */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="sm:hidden p-2 rounded-full text-soro-fade hover:text-soro-mist hover:bg-soro-surface/50 transition-colors"
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
       </header>
+
+      {/* Mobile dropdown menu */}
+      <AnimatePresence>
+        {mobileMenuOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -8, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="fixed top-[72px] left-1/2 -translate-x-1/2 z-40 w-[min(90vw,400px)] rounded-2xl bg-soro-deep/90 backdrop-blur-xl border border-soro-earth/15 shadow-lg shadow-black/20 p-2 sm:hidden"
+          >
+            <div className="flex flex-col gap-1">
+              <Link
+                to="/auth/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-center btn-ember px-4 py-3 rounded-xl text-sm"
+              >
+                Log in
+              </Link>
+              <Link
+                to="/auth/signup"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-center btn-ember px-4 py-3 rounded-xl text-sm font-semibold"
+              >
+                Start for free
+              </Link>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <main>
         {/* ─── Hero ─── */}
@@ -105,25 +175,27 @@ export default function Landing() {
           <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-soro-ember/3 rounded-full blur-3xl" />
           <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-soro-earth/3 rounded-full blur-3xl" />
 
-          <div className="relative max-w-3xl mx-auto text-center">
+          <div className="relative flex flex-col md:flex-row items-center gap-8 md:gap-16 max-w-5xl mx-auto">
+            {/* Text column */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: "easeOut" }}
+              className="flex-1 text-center md:text-left"
             >
               <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold text-soro-mist leading-tight mb-6">
                 You dey carry
                 <br />
-                <span className="text-gradient">something heavy</span> today?
+                <ScribbleCircle className="text-gradient">something heavy</ScribbleCircle> today?
               </h1>
 
-              <p className="text-lg md:text-xl text-soro-fade max-w-2xl mx-auto mb-8 leading-relaxed">
+              <p className="text-lg md:text-xl text-soro-fade/80 max-w-xl mb-8 leading-relaxed">
                 SORO is a safe, anonymous space to process pain, track progress,
                 and build financial footing — daily. Built for Nigerian youth,
                 by someone who lived it.
               </p>
 
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+              <div className="flex flex-col sm:flex-row items-center md:justify-start gap-3">
                 <Link
                   to="/onboarding"
                   className="btn-ember px-8 py-3 rounded-xl text-base font-semibold inline-flex items-center gap-2"
@@ -143,6 +215,42 @@ export default function Landing() {
                 60 seconds to start. No email required.
               </p>
             </motion.div>
+
+            {/* Photo placeholder — swap this div for an <img> when you have a real photo */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
+              className="shrink-0 relative w-64 h-64 md:w-80 md:h-80 lg:w-96 lg:h-96"
+            >
+              {/* Warm gradient silhouette */}
+              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-soro-ember/20 via-soro-gold/10 to-soro-surface/50 overflow-hidden border border-soro-earth/15">
+                {/* Abstract person silhouette */}
+                <svg viewBox="0 0 400 400" fill="none" className="w-full h-full opacity-40" aria-hidden>
+                  {/* Head */}
+                  <ellipse cx="200" cy="120" rx="55" ry="60" fill="url(#hero-grad)" />
+                  {/* Body */}
+                  <path d="M130 220 C130 170 270 170 270 220 L280 320 C280 350 120 350 120 320 L130 220Z" fill="url(#hero-grad)" />
+                  {/* Phone arm */}
+                  <path d="M270 240 C310 260 340 300 330 310 C320 320 300 280 270 260Z" fill="url(#hero-grad)" />
+                  {/* Phone */}
+                  <rect x="318" y="274" width="20" height="38" rx="3" fill="url(#hero-grad)" opacity="0.6" />
+                  {/* Gradient definition */}
+                  <defs>
+                    <linearGradient id="hero-grad" x1="0" y1="0" x2="1" y2="1">
+                      <stop stopColor="#E8834A" />
+                      <stop offset="1" stopColor="#F5C842" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+              </div>
+              {/* Glow behind */}
+              <div className="absolute -inset-4 bg-soro-ember/5 rounded-full blur-2xl -z-10" />
+              {/* Label */}
+              <p className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-soro-fade/40 whitespace-nowrap">
+                Photo coming soon
+              </p>
+            </motion.div>
           </div>
         </section>
 
@@ -154,30 +262,32 @@ export default function Landing() {
                 The hard truths nobody talks about
               </h2>
               <p className="text-soro-fade text-base max-w-lg mx-auto">
-                In Nigeria, mental health is a conversation we don't have — and
-                financial stress makes it worse.
+                <ScribbleUnderline>In Nigeria, mental health is a conversation we don't have — and financial stress makes it worse.</ScribbleUnderline>
               </p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-4">
+            <motion.div
+                variants={staggerContainer}
+                initial="initial"
+                whileInView="animate"
+                viewport={{ once: true }}
+                className="grid md:grid-cols-3 gap-4"
+              >
               {problemStatements.map((item, i) => (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1, duration: 0.5 }}
-                  className="glass-card rounded-2xl p-6"
+                  variants={staggerItem}
                 >
+                  <Card padding="lg">
                   <div className="w-10 h-10 rounded-xl bg-soro-ember/10 flex items-center justify-center mb-4">
                     <item.icon size={20} className="text-soro-ember" />
                   </div>
                   <p className="text-sm text-soro-mist leading-relaxed">
                     {item.text}
-                  </p>
+                  </p>                  </Card>
                 </motion.div>
-              ))}
-            </div>
+                ))}
+            </motion.div>
           </div>
         </section>
 
@@ -189,57 +299,108 @@ export default function Landing() {
                 Two doors. One room.
               </h2>
               <p className="text-soro-fade text-base max-w-lg mx-auto">
-                You can't fix someone's finances if their mind is underwater.
-                You can't fix someone's mind if they're drowning financially.
+                <ScribbleUnderline>You can't fix someone's finances if their mind is underwater. You can't fix someone's mind if they're drowning financially.</ScribbleUnderline>
               </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
-              <div className="glass-card rounded-2xl p-6 md:p-8 border-soro-safe/20">
-                <Shield size={28} className="text-green-400 mb-4" />
-                <h3 className="text-lg font-display font-semibold text-soro-mist mb-2">
-                  Mental Wellness
-                </h3>
-                <ul className="space-y-2 text-sm text-soro-fade">
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-400 mt-0.5">→</span>
-                    Anonymous daily check-ins
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-400 mt-0.5">→</span>
-                    AI reflection built for the Nigerian experience
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-400 mt-0.5">→</span>
-                    Private journal with mood tracking
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-green-400 mt-0.5">→</span>
-                    Daily anchors for grounding
-                  </li>
-                </ul>
-              </div>
+              {/* Mental Wellness — calming radial glow texture */}
+              <Card variant="safe" padding="lg" className="relative overflow-hidden">
+                {/* Calming organic background texture */}
+                <div
+                  className="absolute -top-20 -right-20 w-60 h-60 rounded-full opacity-20 pointer-events-none"
+                  style={{
+                    background: 'radial-gradient(circle at 30% 50%, rgba(46, 139, 87, 0.3) 0%, transparent 60%)',
+                  }}
+                />
+                <div
+                  className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full opacity-10 pointer-events-none"
+                  style={{
+                    background: 'radial-gradient(circle at 70% 50%, rgba(46, 139, 87, 0.2) 0%, transparent 50%)',
+                  }}
+                />
+                {/* Content (relative to sit above textures) */}
+                <div className="relative">
+                  <Shield size={28} className="text-green-400 mb-4" />
+                  <h3 className="text-lg font-display font-semibold text-soro-mist mb-2">
+                    Mental Wellness
+                  </h3>
+                  <ul className="space-y-2 text-sm text-soro-fade">
+                    <li className="flex items-start gap-2">
+                      <span className="text-green-400 mt-0.5">→</span>
+                      Anonymous daily check-ins
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-green-400 mt-0.5">→</span>
+                      AI reflection built for the Nigerian experience
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-green-400 mt-0.5">→</span>
+                      Private journal with mood tracking
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-green-400 mt-0.5">→</span>
+                      Daily anchors for grounding
+                    </li>
+                  </ul>
+                </div>
+              </Card>
 
-              <div className="glass-card rounded-2xl p-6 md:p-8 border-soro-gold/20">
-                <LineChart size={28} className="text-soro-gold mb-4" />
-                <h3 className="text-lg font-display font-semibold text-soro-mist mb-2">
-                  Financial Resilience
-                </h3>
-                <ul className="space-y-2 text-sm text-soro-fade">
-                  <li className="flex items-start gap-2">
-                    <span className="text-soro-gold mt-0.5">→</span>
-                    Debt tracking with zero judgment
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-soro-gold mt-0.5">→</span>
-                    Micro-goals with full-screen celebrations
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-soro-gold mt-0.5">→</span>
-                    Curated earning paths for students
-                  </li>
-                </ul>
-              </div>
+              {/* Financial Resilience — subtle chart-grid texture */}
+              <Card variant="highlight" padding="lg" className="relative overflow-hidden">
+                {/* Dot-grid chart texture */}
+                <div
+                  className="absolute inset-0 pointer-events-none opacity-30"
+                  style={{
+                    backgroundImage: 'radial-gradient(circle, rgba(245, 200, 66, 0.15) 1px, transparent 1px)',
+                    backgroundSize: '24px 24px',
+                  }}
+                />
+                {/* Chart-like rising line accent */}
+                <svg
+                  viewBox="0 0 200 80"
+                  className="absolute bottom-0 right-0 w-48 h-20 opacity-10 pointer-events-none"
+                  aria-hidden
+                >
+                  <path
+                    d="M0 70 L30 60 L60 65 L100 40 L140 25 L170 30 L200 10"
+                    fill="none"
+                    stroke="#F5C842"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                  />
+                  <path
+                    d="M0 70 L30 60 L60 65 L100 40 L140 25 L170 30 L200 10"
+                    fill="none"
+                    stroke="#F5C842"
+                    strokeWidth="6"
+                    strokeLinecap="round"
+                    opacity="0.3"
+                    filter="blur(4px)"
+                  />
+                </svg>
+                {/* Content */}
+                <div className="relative">
+                  <LineChart size={28} className="text-soro-gold mb-4" />
+                  <h3 className="text-lg font-display font-semibold text-soro-mist mb-2">
+                    Financial Resilience
+                  </h3>
+                  <ul className="space-y-2 text-sm text-soro-fade">
+                    <li className="flex items-start gap-2">
+                      <span className="text-soro-gold mt-0.5">→</span>
+                      Debt tracking with zero judgment
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-soro-gold mt-0.5">→</span>
+                      Micro-goals with full-screen celebrations
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="text-soro-gold mt-0.5">→</span>
+                      Curated earning paths for students
+                    </li>
+                  </ul>
+                </div>
+              </Card>
             </div>
           </div>
         </section>
@@ -252,18 +413,21 @@ export default function Landing() {
                 How it works
               </h2>
               <p className="text-soro-fade text-base">
-                3 steps. 60 seconds. No pressure.
+                <ScribbleUnderline>3 steps. 60 seconds. No pressure.</ScribbleUnderline>
               </p>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-6">
+            <motion.div
+                variants={staggerContainer}
+                initial="initial"
+                whileInView="animate"
+                viewport={{ once: true }}
+                className="grid md:grid-cols-3 gap-6"
+              >
               {howItWorks.map((item, i) => (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.15, duration: 0.5 }}
+                  variants={staggerItem}
                   className="text-center"
                 >
                   <div className="w-16 h-16 rounded-2xl bg-soro-ember/10 flex items-center justify-center mx-auto mb-4">
@@ -277,8 +441,8 @@ export default function Landing() {
                   </h3>
                   <p className="text-sm text-soro-fade">{item.description}</p>
                 </motion.div>
-              ))}
-            </div>
+                ))}
+            </motion.div>
           </div>
         </section>
 
@@ -290,36 +454,70 @@ export default function Landing() {
                 Who SORO is for
               </h2>
               <p className="text-soro-fade text-base">
-                Built for Nigerian youth who are carrying something.
+                <ScribbleUnderline>Built for Nigerian youth who are carrying something.</ScribbleUnderline>
               </p>
             </div>
 
-            <div className="grid md:grid-cols-4 gap-4">
+            <motion.div
+              variants={staggerContainer}
+              initial="initial"
+              whileInView="animate"
+              viewport={{ once: true }}
+              className="grid grid-cols-2 md:grid-cols-4 auto-rows-[140px] gap-4"
+            >
               {audienceCards.map((card, i) => (
                 <motion.div
                   key={i}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.1, duration: 0.5 }}
-                  className="glass-card rounded-2xl p-5 text-center"
+                  variants={staggerItem}
+                  className={card.span}
                 >
-                  <Users size={24} className="text-soro-ember mx-auto mb-3" />
-                  <h3 className="font-display font-semibold text-soro-mist mb-1">
-                    {card.title}
-                  </h3>
-                  <p className="text-xs text-soro-fade leading-relaxed">
-                    {card.description}
-                  </p>
+                  <motion.div
+                    whileHover={{ y: -6, scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    className="relative h-full rounded-2xl overflow-hidden border border-soro-earth/15 bg-soro-surface/60 group cursor-default"
+                  >
+                    {/* Base layer: gradient fallback (always rendered, shows if image fails) */}
+                    <div className={`absolute inset-0 bg-gradient-to-br ${card.fallbackBg} opacity-60`} />
+                    {/* Top layer: actual image (fades out on error, revealing gradient) */}
+                    <img
+                      src={`/assets/img/${card.image}`}
+                      alt={card.title}
+                      className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      loading="lazy"
+                      onError={(e) => { e.currentTarget.style.opacity = '0' }}
+                    />
+                    {/* Dark gradient overlay for text readability */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-soro-deep/95 via-soro-deep/60 to-soro-deep/20" />
+
+                    {/* Content */}
+                    <div className="relative h-full flex flex-col justify-end p-4">
+                      <card.Avatar className="w-7 h-7 mb-2" />
+                      <h3 className="font-display font-semibold text-soro-mist mb-1">
+                        {card.title}
+                      </h3>
+                      <p className="text-xs text-soro-fade leading-relaxed">
+                        {card.description}
+                      </p>
+                    </div>
+                  </motion.div>
                 </motion.div>
               ))}
-            </div>
+            </motion.div>
           </div>
         </section>
 
         {/* ─── CTA ─── */}
-        <section className="px-4 py-20 md:py-28">
-          <div className="max-w-3xl mx-auto text-center">
+        <section className="relative px-4 py-20 md:py-28 overflow-hidden">
+          {/* Warm overlapping circles background */}
+          <div className="absolute inset-0 pointer-events-none" aria-hidden>
+            <div className="absolute top-1/2 left-1/4 w-72 h-72 bg-soro-ember/5 rounded-full blur-3xl" />
+            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-soro-gold/5 rounded-full blur-3xl" />
+            <div className="absolute top-1/3 right-1/3 w-48 h-48 bg-soro-earth/5 rounded-full blur-3xl" />
+            {/* Two small overlapping circles suggesting connection */}
+            <div className="absolute bottom-1/3 left-1/3 w-32 h-32 bg-soro-ember/8 rounded-full blur-2xl" />
+            <div className="absolute bottom-1/3 left-[calc(33%+20px)] w-32 h-32 bg-soro-gold/8 rounded-full blur-2xl" />
+          </div>
+          <div className="relative max-w-3xl mx-auto text-center">
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               whileInView={{ opacity: 1, scale: 1 }}
@@ -328,7 +526,7 @@ export default function Landing() {
             >
               <h2 className="text-2xl md:text-4xl font-display font-bold text-soro-mist mb-4">
                 E go better —{" "}
-                <span className="text-gradient">but first, say it</span>
+                <MarkerHighlightBehind className="text-gradient">but first, say it</MarkerHighlightBehind>
               </h2>
               <p className="text-soro-fade text-base mb-8 max-w-lg mx-auto">
                 You don't have to carry it alone. SORO is free, anonymous, and
@@ -358,7 +556,8 @@ export default function Landing() {
           <p className="text-xs text-soro-fade max-w-md mx-auto leading-relaxed">
             Built in Lagos by someone who lived it.
             <br />
-            Free forever. No premium. No paywall. Just a hand when you need it.
+            Free forever. Supported by non-intrusive ads, never in your check-ins or journal.
+            No premium. No paywall. Just a hand when you need it.
           </p>
           <div className="mt-6 text-xs text-soro-fade/50">
             &copy; {new Date().getFullYear()} SORO. All rights reserved.
