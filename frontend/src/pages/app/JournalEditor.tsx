@@ -135,6 +135,7 @@ export default function JournalEditor() {
               </span>
             )}
             <Button
+              slideFill
               onClick={handleSaveNow}
               size="sm"
               disabled={isSaving || saveMutation.isPending}
@@ -158,6 +159,7 @@ export default function JournalEditor() {
               Failed to load this journal entry. It may have been deleted or you may not have access.
             </p>
             <Button
+              slideFill
               onClick={() => loadEntry()}
               variant="primary"
               leftIcon={<RefreshCw size={18} />}

@@ -172,6 +172,7 @@ export default function Reflect() {
         {/* Actions */}
         <div className="flex flex-col gap-3">
           <Button
+            slideFill
             onClick={handleSaveToJournal}
             fullWidth
             size="lg"
@@ -184,6 +185,7 @@ export default function Reflect() {
 
           <div className="flex gap-3">
             <Button
+              slideFill
               onClick={() => navigate('/app/home')}
               fullWidth
               variant="secondary"

@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,12 +12,12 @@ from app.core.rate_limit import limiter
 from app.api import auth, checkins, reflect, journal, anchor, insights
 from app.api import settings as settings_router
 from app.api import finance
-from app.api import community
-from app.api import circles
+
 from app.api.anchor import seed_anchors
 from app.services.scheduler import start_scheduler, stop_scheduler
 
 cfg = get_settings()
+logger = logging.getLogger("soro")
 
 
 @asynccontextmanager
@@ -28,6 +29,22 @@ async def lifespan(app: FastAPI):
             "Generate a strong secret (e.g. 'openssl rand -hex 32') and set it "
             "in your .env file or environment before starting in production mode."
         )
+
+    # P0.5: Loud debug-mode warning — impossible to miss in production logs
+    if cfg.debug:
+        logger.warning(
+            "⚠️  WARNING: DEBUG MODE IS ENABLED! "
+            "Set DEBUG=false in your .env or environment before deploying to production. "
+            "Debug mode exposes detailed error information and should never be active in production."
+        )
+        print(
+            "\n" + "=" * 72 + "\n"
+            "⚠️  WARNING: DEBUG MODE IS ENABLED!\n"
+            "Set DEBUG=false in your .env or environment before deploying to production.\n"
+            "Debug mode exposes detailed error information and should never be active in production.\n"
+            + "=" * 72 + "\n"
+        )
+
     await init_db()
     await seed_anchors()
     await start_scheduler()
@@ -65,8 +82,7 @@ app.include_router(anchor.router, prefix="/api")
 app.include_router(insights.router, prefix="/api")
 app.include_router(settings_router.router, prefix="/api")
 app.include_router(finance.router, prefix="/api")
-app.include_router(community.router, prefix="/api")
-app.include_router(circles.router, prefix="/api")
+
 
 
 @app.get("/health")

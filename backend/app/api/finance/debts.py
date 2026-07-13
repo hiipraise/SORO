@@ -31,15 +31,25 @@ class PayDebtRequest(BaseModel):
 
 
 @router.get("/")
-async def list_debts(user_id: str = Depends(get_current_user_id)):
-    """Get all debts for the current user."""
+async def list_debts(
+    user_id: str = Depends(get_current_user_id),
+    skip: int = 0,
+    limit: int = 50,
+):
+    """Get debts for the current user with pagination."""
+    limit = min(limit, 100)
+
+    total = await Debt.find(Debt.user_id == user_id).count()
+
     debts = (
         await Debt.find(Debt.user_id == user_id)
         .sort(-Debt.created_at)
+        .skip(skip)
+        .limit(limit)
         .to_list()
     )
 
-    return [
+    items = [
         {
             "id": str(d.id),
             "label": d.label,
@@ -52,6 +62,14 @@ async def list_debts(user_id: str = Depends(get_current_user_id)):
         }
         for d in debts
     ]
+
+    return {
+        "items": items,
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+        "has_more": (skip + limit) < total,
+    }
 
 
 @router.post("/")

@@ -11,7 +11,6 @@ const mobileNavItems = [
   { to: '/app/insights', label: 'Insights' },
   { to: '/app/anchor', label: 'Anchor' },
   { to: '/app/finance', label: 'Finance' },
-  { to: '/app/community', label: 'Vent Wall' },
   { to: '/app/settings', label: 'Settings' },
 ]
 

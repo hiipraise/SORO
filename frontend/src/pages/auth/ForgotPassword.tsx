@@ -98,6 +98,7 @@ export default function ForgotPassword() {
               />
 
               <Button
+                slideFill
                 type="submit"
                 fullWidth
                 size="lg"

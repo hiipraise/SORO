@@ -127,29 +127,11 @@ async def delete_account(user_id: str = Depends(get_current_user_id)):
     from app.models.journal_entry import JournalEntry
     from app.models.debt import Debt
     from app.models.goal import Goal
-    from app.models.community_post import CommunityPost
-
     await CheckIn.find(CheckIn.user_id == user_id).delete()
     await Reflection.find(Reflection.user_id == user_id).delete()
     await JournalEntry.find(JournalEntry.user_id == user_id).delete()
     await Debt.find(Debt.user_id == user_id).delete()
     await Goal.find(Goal.user_id == user_id).delete()
-    await CommunityPost.find(CommunityPost.user_id == user_id).delete()
-
-    # Remove user from all PeerCircles they've joined
-    from app.models.circle import PeerCircle
-
-    await PeerCircle.update_many(
-        {"members.user_id": user_id},
-        {"$pull": {"members": {"user_id": user_id}}},
-    )
-
-    # Anonymize CircleMessages (preserve conversation flow, sever user link)
-    from app.models.circle_message import CircleMessage
-
-    await CircleMessage.find(CircleMessage.user_id == user_id).update_many(
-        {"$set": {"user_id": "", "display_name": "[deleted]"}},
-    )
 
     # Delete user
     await user.delete()

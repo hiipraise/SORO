@@ -14,15 +14,25 @@ class CreateCheckinRequest(BaseModel):
 
 
 @router.get("/")
-async def list_checkins(user_id: str = Depends(get_current_user_id)):
-    """Get all check-ins for the current user."""
+async def list_checkins(
+    user_id: str = Depends(get_current_user_id),
+    skip: int = 0,
+    limit: int = 50,
+):
+    """Get check-ins for the current user with pagination."""
+    limit = min(limit, 100)
+
+    total = await CheckIn.find(CheckIn.user_id == user_id).count()
+
     checkins = (
         await CheckIn.find(CheckIn.user_id == user_id)
         .sort(-CheckIn.created_at)
+        .skip(skip)
+        .limit(limit)
         .to_list()
     )
 
-    return [
+    items = [
         {
             "id": str(c.id),
             "mood_state": c.mood_state,
@@ -31,6 +41,14 @@ async def list_checkins(user_id: str = Depends(get_current_user_id)):
         }
         for c in checkins
     ]
+
+    return {
+        "items": items,
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+        "has_more": (skip + limit) < total,
+    }
 
 
 @router.get("/{checkin_id}")

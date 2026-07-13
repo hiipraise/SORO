@@ -104,6 +104,7 @@ export default function Signup() {
           )}
 
           <Button
+            slideFill
             type="submit"
             fullWidth
             size="lg"

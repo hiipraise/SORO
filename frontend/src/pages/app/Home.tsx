@@ -1,14 +1,20 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { PenLine, BookOpen, BarChart3, Anchor, ArrowRight, Sparkles } from 'lucide-react'
+import { PenLine, BookOpen, BarChart3, Anchor, ArrowRight, Sparkles, Wallet, Target } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import PageTransition from '@/components/layout/PageTransition'
 import CheckinStreak from '@/components/ui/CheckinStreak'
 import AnchorCard from '@/components/ui/AnchorCard'
 import AdSlot from '@/components/ui/AdSlot'
+import EmptyState from '@/components/shared/EmptyState'
+import Card from '@/components/shared/Card'
+import ProgressBar from '@/components/shared/ProgressBar'
+import Button from '@/components/shared/Button'
 import { useCheckinStore } from '@/stores/checkinStore'
-import { getTodayAnchor, getMoodInsights, getJournalEntries, getReflections } from '@/lib/api'
+import { useAuthStore } from '@/stores/authStore'
+import { getTodayAnchor, getMoodInsights, getJournalEntries, getReflections, getDebts, getGoals } from '@/lib/api'
+import { staggerContainer, staggerItem } from '@/lib/motion'
 
 const quickActions = [
   {
@@ -44,6 +50,14 @@ const quickActions = [
     bg: 'bg-soro-earth/10',
   },
 ]
+
+const MOOD_COLORS: Record<string, string> = {
+  at_limit: '#C0392B',
+  managing: '#E8834A',
+  mixed: '#F5C842',
+  okay: '#8B5E3C',
+  good: '#2E8B57',
+}
 
 function formatRelativeTime(dateStr: string): string {
   const now = Date.now()
@@ -98,9 +112,13 @@ const DAY_ANCHORS: Record<string, { content: string; source: string; type: strin
 
 export default function Home() {
   const { lastCheckinDate: localLastDate, checkinHistory } = useCheckinStore()
+  const { user } = useAuthStore()
   const [localAnchor, setLocalAnchor] = useState<{ content: string; source: string; type: string } | null>(null)
 
   const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long' }) as keyof typeof DAY_ANCHORS
+
+  // Extract first name from email for personalized greeting
+  const firstName = user?.email ? user.email.split('@')[0].split(/[._]/)[0].replace(/^./, (c) => c.toUpperCase()) : null
 
   // Fetch server insights for streak & latest check-in
   const { data: moodData, isLoading: insightsLoading } = useQuery({
@@ -114,11 +132,12 @@ export default function Home() {
     queryFn: getTodayAnchor,
   })
 
-  // Fetch latest journal entry
-  const { data: entriesData, isLoading: journalLoading } = useQuery({
+  // Fetch latest journal entry (first page is enough for preview)
+  const { data: entriesPage, isLoading: journalLoading } = useQuery({
     queryKey: ['journal-entries'],
-    queryFn: getJournalEntries,
+    queryFn: () => getJournalEntries(0, 20),
   })
+  const entriesData = entriesPage?.items
 
   // Fetch latest reflection
   const { data: reflectionsData, isLoading: reflectionLoading } = useQuery({
@@ -126,9 +145,21 @@ export default function Home() {
     queryFn: getReflections,
   })
 
+  // Fetch financial data for snapshot
+  const { data: debtsPage, isLoading: financeLoading } = useQuery({
+    queryKey: ['debts'],
+    queryFn: () => getDebts(0, 50),
+  })
+  const { data: goalsPage } = useQuery({
+    queryKey: ['goals'],
+    queryFn: () => getGoals(0, 50),
+  })
+
   const anyMoodData = moodData as any
-  const anyEntries = entriesData as any[]
+  const anyEntries = (entriesPage?.items ?? []) as any[]
   const anyReflections = reflectionsData as any[]
+  const debts = (debtsPage?.items ?? []) as any[]
+  const goals = (goalsPage?.items ?? []) as any[]
 
   // Server-sourced data
   const serverStreak = anyMoodData?.stats?.streak ?? null
@@ -139,6 +170,12 @@ export default function Home() {
     ? { mood: anyMoodData.data[anyMoodData.data.length - 1].mood_state, date: anyMoodData.data[anyMoodData.data.length - 1].date }
     : null
 
+  // Mood data for trend visualization (last 7 days)
+  const moodTrendDays = anyMoodData?.data
+    ? [...anyMoodData.data].slice(-7).reverse()
+    : []
+  const hasTrendData = moodTrendDays.length > 0
+
   // Use server data when available, fall back to local store
   const effectiveStreak = serverStreak ?? (insightsLoading ? useCheckinStore.getState().streak : 0)
   const effectiveLastDate = serverLastDate ?? (insightsLoading ? localLastDate : null)
@@ -146,6 +183,12 @@ export default function Home() {
     ? { mood: checkinHistory[checkinHistory.length - 1].mood, date: checkinHistory[checkinHistory.length - 1].date }
     : null
   )
+
+  // Financial snapshot — best active goal or debt summary
+  const activeGoal = goals.find((g: any) => g.status === 'active')
+  const activeDebts = debts.filter((d: any) => d.status !== 'cleared')
+  const totalDebtRemaining = activeDebts.reduce((s: number, d: any) => s + (d.amount - d.amount_paid), 0)
+  const hasFinanceData = activeGoal || activeDebts.length > 0
 
   // Set anchor from server data or fall back to day-based anchor
   useEffect(() => {
@@ -171,9 +214,8 @@ export default function Home() {
 
   const getGreeting = () => {
     const hour = new Date().getHours()
-    if (hour < 12) return 'Good morning'
-    if (hour < 17) return 'Good afternoon'
-    return 'Good evening'
+    const base = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+    return firstName ? `${base}, ${firstName}` : base
   }
 
   return (
@@ -189,17 +231,66 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Streak + Check-in Status */}
+        {/* Streak + Mood Trend + Check-in Status */}
         <div className="flex items-center justify-between flex-wrap gap-2">
-          <CheckinStreak streak={effectiveStreak} lastCheckinDate={effectiveLastDate} />
-          {effectiveLatestMood && checkedInToday && !insightsLoading && (
-            <span className="text-xs text-soro-fade bg-soro-surface px-3 py-1.5 rounded-full border border-soro-earth/10">
-              Last mood: {effectiveLatestMood.mood.replace('_', ' ')}
-            </span>
+          {insightsLoading ? (
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-32 bg-soro-surface rounded-full animate-pulse" />
+              <div className="h-6 w-48 bg-soro-surface rounded-lg animate-pulse" />
+            </div>
+          ) : (
+            <>
+              <CheckinStreak streak={effectiveStreak} lastCheckinDate={effectiveLastDate} />
+              {effectiveLatestMood && checkedInToday && (
+                <span className="text-xs text-soro-fade bg-soro-surface px-3 py-1.5 rounded-full border border-soro-earth/10">
+                  Last mood: {effectiveLatestMood.mood.replace('_', ' ')}
+                </span>
+              )}
+            </>
           )}
         </div>
 
-        {/* Check-in CTA */}
+        {/* 7-day mood trend */}
+        {!insightsLoading && hasTrendData && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15, duration: 0.3 }}
+            className="glass-card rounded-xl px-4 py-3"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs text-soro-fade font-medium">7-day mood trend</span>
+              <Link to="/app/insights" className="text-[10px] text-soro-ember hover:underline">View insights</Link>
+            </div>
+            <div className="flex items-end gap-1.5 h-8">
+              {moodTrendDays.slice(0, 7).map((day: any, i: number) => {
+                const color = MOOD_COLORS[day.mood_state] || '#6B7280'
+                const intensity = ['good', 'okay', 'mixed', 'managing', 'at_limit'].indexOf(day.mood_state)
+                const height = Math.max(30, 100 - intensity * 14) // taller = better mood
+                return (
+                  <div
+                    key={i}
+                    className="relative flex-1 group"
+                  >
+                    <div
+                      className="w-full rounded-sm transition-all duration-200 group-hover:opacity-80"
+                      style={{
+                        height: `${height}%`,
+                        backgroundColor: color,
+                        opacity: 0.7 + (1 - i * 0.06),
+                      }}
+                    />
+                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-[9px] text-soro-fade whitespace-nowrap bg-soro-surface px-1.5 py-0.5 rounded">
+                      {new Date(day.date).toLocaleDateString('en-NG', { weekday: 'short' })} — {day.mood_state.replace('_', ' ')}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Check-in CTA — elevated */}
         {!checkedInToday && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
@@ -208,11 +299,21 @@ export default function Home() {
           >
             <Link
               to="/app/checkin"
-              className="block btn-ember rounded-2xl p-6 md:p-8 text-center relative overflow-hidden group"
+              className="relative block rounded-2xl p-8 md:p-10 text-center overflow-hidden group border border-soro-ember/20 glow-ember"
+              style={{
+                background: 'linear-gradient(135deg, rgba(232,131,74,0.95), rgba(212,115,62,0.95))',
+              }}
             >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-              <Sparkles size={32} className="mx-auto mb-3 text-white/80" />
-              <h2 className="text-xl md:text-2xl font-display font-bold text-white mb-1">
+              {/* Shimmer */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/8 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
+              {/* Pulsing sparkle icon */}
+              <motion.div
+                animate={{ scale: [1, 1.12, 1] }}
+                transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <Sparkles size={36} className="mx-auto mb-3 text-white/90" />
+              </motion.div>
+              <h2 className="text-xl md:text-2xl font-display font-bold text-white mb-2">
                 How are you feeling?
               </h2>
               <p className="text-white/70 text-sm">
@@ -255,6 +356,61 @@ export default function Home() {
           </motion.div>
         )}
 
+        {/* Financial Snapshot */}
+        {!financeLoading && hasFinanceData && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.35 }}
+          >
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-lg font-display font-semibold text-soro-mist">
+                Financial snapshot
+              </h2>
+              <Link to="/app/finance" className="text-xs text-soro-ember hover:underline flex items-center gap-1">
+                View all <ArrowRight size={12} />
+              </Link>
+            </div>
+            {activeGoal ? (
+              <Link to="/app/finance/goals" className="block glass-card rounded-2xl p-5 border-soro-gold/10 hover:border-soro-gold/25 transition-all group">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-9 h-9 rounded-xl bg-soro-gold/10 flex items-center justify-center">
+                    <Target size={18} className="text-soro-gold" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-soro-mist truncate group-hover:text-soro-gold transition-colors">
+                      {activeGoal.title}
+                    </p>
+                    <p className="text-xs text-soro-fade">
+                      ₦{activeGoal.current_amount?.toLocaleString() || 0} / ₦{activeGoal.target_amount?.toLocaleString() || 0}
+                    </p>
+                  </div>
+                </div>
+                <ProgressBar progress={activeGoal.progress || 0} size="sm" color="gold" />
+              </Link>
+            ) : activeDebts.length > 0 ? (
+              <Link to="/app/finance/debt" className="block glass-card rounded-2xl p-5 border-soro-ember/10 hover:border-soro-ember/25 transition-all group">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-9 h-9 rounded-xl bg-soro-ember/10 flex items-center justify-center">
+                    <Wallet size={18} className="text-soro-ember" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-soro-mist">Debt tracker</p>
+                    <p className="text-xs text-soro-fade">
+                      ₦{totalDebtRemaining.toLocaleString()} remaining across {activeDebts.length} debt{activeDebts.length > 1 ? 's' : ''}
+                    </p>
+                  </div>
+                </div>
+                <ProgressBar
+                  progress={activeDebts.reduce((s: number, d: any) => s + (d.amount_paid / d.amount) * 100, 0) / activeDebts.length}
+                  size="sm"
+                  color="ember"
+                />
+              </Link>
+            ) : null}
+          </motion.div>
+        )}
+
         {/* Today's Anchor */}
         <div>
           <div className="flex items-center justify-between mb-3">
@@ -285,28 +441,51 @@ export default function Home() {
           ) : null}
         </div>
 
-        {/* Quick Actions */}
+        {/* Quick Actions — animated */}
         <div>
           <h2 className="text-lg font-display font-semibold text-soro-mist mb-3">
             Quick actions
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {quickActions.map((action) => (
-              <Link
-                key={action.to}
-                to={action.to}
-                className="glass-card rounded-2xl p-4 hover:border-soro-ember/20 transition-all duration-200 group"
-              >
-                <div className={`w-10 h-10 rounded-xl ${action.bg} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
-                  <action.icon size={20} className={action.color} />
+          {insightsLoading ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="glass-card rounded-2xl p-4 animate-pulse">
+                  <div className="w-10 h-10 rounded-xl bg-soro-surface mb-3" />
+                  <div className="h-4 bg-soro-surface rounded w-3/4 mb-1" />
+                  <div className="h-3 bg-soro-surface rounded w-1/2" />
                 </div>
-                <h3 className="text-sm font-semibold text-soro-mist mb-0.5">
-                  {action.label}
-                </h3>
-                <p className="text-xs text-soro-fade">{action.desc}</p>
-              </Link>
-            ))}
-          </div>
+              ))}
+            </div>
+          ) : (
+            <motion.div
+              variants={staggerContainer}
+              initial="initial"
+              animate="animate"
+              className="grid grid-cols-2 md:grid-cols-4 gap-3"
+            >
+              {quickActions.map((action) => (
+                <motion.div key={action.to} variants={staggerItem}>
+                  <motion.div
+                    whileHover={{ y: -4, scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                  >
+                    <Link
+                      to={action.to}
+                      className="block glass-card rounded-2xl p-4 hover:border-soro-ember/20 transition-colors duration-200 group"
+                    >
+                      <div className={`w-10 h-10 rounded-xl ${action.bg} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
+                        <action.icon size={20} className={action.color} />
+                      </div>
+                      <h3 className="text-sm font-semibold text-soro-mist mb-0.5">
+                        {action.label}
+                      </h3>
+                      <p className="text-xs text-soro-fade">{action.desc}</p>
+                    </Link>
+                  </motion.div>
+                </motion.div>
+              ))}
+            </motion.div>
+          )}
         </div>
 
         {/* Last journal preview */}
@@ -343,23 +522,30 @@ export default function Home() {
               </span>
             </Link>
           ) : (
-            <Link
-              to="/app/journal/new"
-              className="block glass-card rounded-2xl p-5 border-soro-earth/10 hover:border-soro-ember/20 transition-all"
-            >
-              <div className="flex items-center gap-3">
-                <BookOpen size={20} className="text-soro-fade" />
-                <p className="text-sm text-soro-fade">
-                  No journal entries yet.{' '}
-                  <span className="text-soro-ember hover:underline">Write your first entry</span>
-                </p>
-              </div>
-            </Link>
+            <div className="glass-card rounded-2xl p-8">
+              <EmptyState
+                icon={<BookOpen size={40} className="text-soro-fade/50" />}
+                title="No entries yet"
+                description="Your journal is empty — a blank page waiting for your voice."
+                action={
+                  <Link to="/app/journal/new">
+                    <Button slideFill size="sm" leftIcon={<BookOpen size={16} />}>
+                      Write your first entry
+                    </Button>
+                  </Link>
+                }
+              />
+            </div>
           )}
         </div>
 
         {/* Ad Slot */}
-        <AdSlot className="mt-8" />
+        <div className="relative">
+          <span className="text-[10px] font-medium text-soro-fade/40 uppercase tracking-wider mb-1.5 block">Ad</span>
+          <Card padding="sm">
+            <AdSlot className="!mt-0" />
+          </Card>
+        </div>
       </div>
     </PageTransition>
   )

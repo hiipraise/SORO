@@ -1,6 +1,5 @@
 """
 Shared crisis keyword detection and moderation utilities.
-Extracted from duplicated copies in ai_service.py and community/posts.py.
 """
 
 CRISIS_KEYWORDS = [

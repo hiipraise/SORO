@@ -166,6 +166,7 @@ export default function CelebrationModal({ isOpen, onClose, title, emoji = '🎉
                 transition={{ delay: 0.7 }}
               >
                 <Button
+                  slideFill
                   onClick={onClose}
                   variant="gold"
                   size="lg"

@@ -4,6 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import ValidationError
 
 from app.core.security import decode_access_token
+from app.models.revoked_token import RevokedToken
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -26,12 +27,35 @@ async def get_current_user_id(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ) -> str:
     """
-    Extract the current user ID from the JWT token or anonymous header.
-    Returns user ID string.
+    Extract the current user ID from the JWT token.
+
+    Rejects tokens that:
+    - Are malformed or expired
+    - Don't have purpose="access" (so password-reset tokens can't be used as auth)
+    - Have been revoked (e.g. via logout)
     """
     if credentials:
         payload = decode_access_token(credentials.credentials)
         if payload and "sub" in payload:
+            # P0.1: Only accept tokens with purpose="access"
+            if payload.get("purpose") != "access":
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid token purpose",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+
+            # P0.4: Check if token has been revoked
+            jti = payload.get("jti")
+            if jti:
+                revoked = await RevokedToken.get(jti)
+                if revoked:
+                    raise HTTPException(
+                        status_code=status.HTTP_401_UNAUTHORIZED,
+                        detail="Token has been revoked",
+                        headers={"WWW-Authenticate": "Bearer"},
+                    )
+
             return payload["sub"]
 
     raise HTTPException(

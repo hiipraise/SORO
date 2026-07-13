@@ -1,5 +1,6 @@
+import re
 import uuid
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException, Depends, Request
 from pydantic import BaseModel, EmailStr, field_validator
 
@@ -12,8 +13,12 @@ from app.core.security import (
     decode_access_token,
 )
 from app.core.config import get_settings
-from app.core.rate_limit import limiter
+from app.core.rate_limit import limiter, auth_limiter
 from app.services.email_service import send_welcome_email, send_password_reset
+
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+
+bearer_scheme = HTTPBearer(auto_error=False)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -50,7 +55,7 @@ class ChangePasswordRequest(BaseModel):
 
 
 @router.post("/signup")
-@limiter.limit("5/minute")
+@auth_limiter.limit("5/minute")
 async def signup(req: SignupRequest, request: Request):
     """Create a new email account."""
     existing = await User.find_one({"email": req.email})
@@ -64,7 +69,7 @@ async def signup(req: SignupRequest, request: Request):
     )
     await user.insert()
 
-    token = create_access_token({"sub": str(user.id)})
+    token = create_access_token({"sub": str(user.id)}, purpose="access")
 
     # Send welcome email (best-effort)
     await send_welcome_email(req.email)
@@ -81,7 +86,7 @@ async def signup(req: SignupRequest, request: Request):
 
 
 @router.post("/login")
-@limiter.limit("5/minute")
+@auth_limiter.limit("5/minute")
 async def login(req: LoginRequest, request: Request):
     """Log in with email and password."""
     user = await User.find_one({"email": req.email})
@@ -91,7 +96,7 @@ async def login(req: LoginRequest, request: Request):
     if not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    token = create_access_token({"sub": str(user.id)})
+    token = create_access_token({"sub": str(user.id)}, purpose="access")
 
     return {
         "token": token,
@@ -116,7 +121,7 @@ async def anonymous_signup(request: Request):
     )
     await user.insert()
 
-    token = create_access_token({"sub": str(user.id), "anonymous_id": anonymous_id})
+    token = create_access_token({"sub": str(user.id), "anonymous_id": anonymous_id}, purpose="access")
 
     return {
         "token": token,
@@ -137,13 +142,72 @@ async def refresh_token(
 ):
     """Issue a new JWT for an authenticated user (stateless refresh)."""
     user = await get_or_404(User, user_id, "User not found")
-    token = create_access_token({"sub": str(user.id)})
+    token = create_access_token({"sub": str(user.id)}, purpose="access")
     return {
         "token": token,
         "user": {
             "id": str(user.id),
             "email": user.email,
             "is_anonymous": user.is_anonymous,
+            "created_at": user.created_at.isoformat(),
+        },
+    }
+
+
+class ClaimAccountRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+    @field_validator("password")
+    @classmethod
+    def password_min_length(cls, v: str) -> str:
+        if len(v) < 6:
+            raise ValueError("Password must be at least 6 characters")
+        return v
+
+
+@router.post("/claim-account")
+@limiter.limit("3/minute")
+async def claim_account(
+    req: ClaimAccountRequest,
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+):
+    """
+    Convert an anonymous user into a full email+password account.
+    All existing data (check-ins, journal, debts, goals) stays attached
+    to the same user document — nothing is lost.
+    """
+    user = await get_or_404(User, user_id, "User not found")
+
+    if not user.is_anonymous:
+        raise HTTPException(status_code=400, detail="Account already has email")
+
+    # Check no other user has this email
+    existing = await User.find_one({"email": req.email})
+    if existing and str(existing.id) != user_id:
+        raise HTTPException(status_code=409, detail="Email already registered")
+
+    # Convert the SAME user document — same _id, all data preserved
+    user.email = req.email
+    user.password_hash = hash_password(req.password)
+    user.is_anonymous = False
+    user.updated_at = datetime.now(timezone.utc)
+    await user.save()
+
+    # Issue fresh token
+    token = create_access_token({"sub": str(user.id)}, purpose="access")
+
+    # Send welcome email (best-effort)
+    first_name = re.split(r"[._]", req.email.split("@")[0])[0].capitalize()
+    await send_welcome_email(req.email, first_name)
+
+    return {
+        "token": token,
+        "user": {
+            "id": str(user.id),
+            "email": user.email,
+            "is_anonymous": False,
             "created_at": user.created_at.isoformat(),
         },
     }
@@ -176,14 +240,33 @@ async def change_password(
 
 @router.post("/logout")
 @limiter.limit("10/minute")
-async def logout(request: Request):
-    """Log out (invalidate token)."""
-    # Stateless JWT — client-side token removal
+async def logout(
+    request: Request,
+    user_id: str = Depends(get_current_user_id),
+    credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
+):
+    """Log out — revoke the current JWT so it can't be used again."""
+    from app.models.revoked_token import RevokedToken
+
+    payload = decode_access_token(credentials.credentials)
+    jti = payload.get("jti") if payload else None
+    exp = payload.get("exp") if payload else None
+
+    if jti:
+        revoked = RevokedToken(
+            id=jti,
+            exp=datetime.fromtimestamp(exp, tz=timezone.utc) if exp else datetime.now(timezone.utc) + timedelta(hours=1),
+        )
+        try:
+            await revoked.insert()
+        except Exception:
+            pass  # Already revoked or duplicate — fine
+
     return {"message": "Logged out successfully"}
 
 
 @router.post("/forgot-password")
-@limiter.limit("3/minute")
+@auth_limiter.limit("3/minute")
 async def forgot_password(req: ForgotPasswordRequest, request: Request):
     """Send password reset email."""
     user = await User.find_one({"email": req.email})
@@ -192,8 +275,9 @@ async def forgot_password(req: ForgotPasswordRequest, request: Request):
         return {"message": "If the email exists, a reset link has been sent."}
 
     reset_token = create_access_token(
-        {"sub": str(user.id), "purpose": "reset"},
+        {"sub": str(user.id)},  # purpose="access" is default, but we override to "reset"
         expires_delta=timedelta(hours=1),
+        purpose="reset",
     )
 
     reset_link = f"/auth/reset-password?token={reset_token}"

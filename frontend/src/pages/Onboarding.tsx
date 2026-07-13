@@ -203,6 +203,26 @@ export default function Onboarding() {
                 </h1>
                 <p className="text-sm text-soro-fade mb-8">{steps[2].subtitle}</p>
 
+                {/* P3.18: Anonymity limits info card */}
+                <div className="glass-card rounded-2xl p-4 mb-4 border-soro-ember/20 bg-soro-ember/5">
+                  <div className="flex items-start gap-3">
+                    <Brain size={18} className="text-soro-ember shrink-0 mt-0.5" />
+                    <div className="text-xs text-soro-fade leading-relaxed">
+                      <p className="font-medium text-soro-mist mb-1 text-sm">
+                        Here's how anonymity works
+                      </p>
+                      <p className="mb-2">
+                        Your entries are saved to this device. If you switch phones
+                        or clear your browser, your data stays here.
+                      </p>
+                      <p>
+                        Create a free account anytime to keep everything — your
+                        check-ins, journal, and progress — across devices.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex flex-col gap-4">
                   <button
                     onClick={handleFinish}

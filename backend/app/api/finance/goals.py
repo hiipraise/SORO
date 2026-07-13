@@ -32,15 +32,25 @@ class ProgressGoalRequest(BaseModel):
 
 
 @router.get("/")
-async def list_goals(user_id: str = Depends(get_current_user_id)):
-    """Get all goals for the current user."""
+async def list_goals(
+    user_id: str = Depends(get_current_user_id),
+    skip: int = 0,
+    limit: int = 50,
+):
+    """Get goals for the current user with pagination."""
+    limit = min(limit, 100)
+
+    total = await Goal.find(Goal.user_id == user_id).count()
+
     goals = (
         await Goal.find(Goal.user_id == user_id)
         .sort(-Goal.created_at)
+        .skip(skip)
+        .limit(limit)
         .to_list()
     )
 
-    return [
+    items = [
         {
             "id": str(g.id),
             "title": g.title,
@@ -54,6 +64,14 @@ async def list_goals(user_id: str = Depends(get_current_user_id)):
         }
         for g in goals
     ]
+
+    return {
+        "items": items,
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+        "has_more": (skip + limit) < total,
+    }
 
 
 @router.post("/")

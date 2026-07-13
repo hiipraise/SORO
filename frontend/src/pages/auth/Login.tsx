@@ -100,6 +100,7 @@ export default function Login() {
           )}
 
           <Button
+            slideFill
             type="submit"
             fullWidth
             size="lg"

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, Trash2, CheckCircle, Circle, ArrowLeft } from 'lucide-react'
+import { Plus, Trash2, CheckCircle, Circle, ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import PageTransition from '@/components/layout/PageTransition'
@@ -34,10 +34,12 @@ export default function DebtTracker() {
   const { addToast } = useToastStore()
   const queryClient = useQueryClient()
 
-  const { data: debts = [], isLoading } = useQuery<DebtData[]>({
+  const { data: debtsData, isLoading, isError, refetch } = useQuery({
     queryKey: ['debts'],
-    queryFn: getDebts as () => Promise<DebtData[]>,
+    queryFn: () => getDebts(0, 100),
   })
+
+  const debts = (debtsData?.items ?? []) as DebtData[]
 
   const createMutation = useMutation({
     mutationFn: (data: typeof defaultForm) => createDebt(data),
@@ -139,7 +141,7 @@ export default function DebtTracker() {
               Track your debts without judgment
             </p>
           </div>
-          <Button onClick={() => setShowModal(true)} leftIcon={<Plus size={18} />}>
+          <Button slideFill onClick={() => setShowModal(true)} leftIcon={<Plus size={18} />}>
             Add debt
           </Button>
         </div>
@@ -173,12 +175,28 @@ export default function DebtTracker() {
               </div>
             ))}
           </div>
+        ) : isError ? (
+          <EmptyState
+            icon={<AlertCircle size={48} />}
+            title="Failed to load debts"
+            description="Could not load your debt data. Check your connection and try again."
+            action={
+              <Button
+                slideFill
+                onClick={() => refetch()}
+                variant="primary"
+                leftIcon={<RefreshCw size={18} />}
+              >
+                Try again
+              </Button>
+            }
+          />
         ) : debts.length === 0 ? (
           <EmptyState
             title="No debts tracked"
             description="Add your first debt to start tracking. No judgment — just progress."
             action={
-              <Button onClick={() => setShowModal(true)} leftIcon={<Plus size={18} />}>
+              <Button slideFill onClick={() => setShowModal(true)} leftIcon={<Plus size={18} />}>
                 Add your first debt
               </Button>
             }
@@ -333,7 +351,7 @@ export default function DebtTracker() {
               <Button variant="ghost" fullWidth onClick={() => { setShowModal(false); setForm(defaultForm) }}>
                 Cancel
               </Button>
-            <Button fullWidth onClick={handleCreate} isLoading={createMutation.isPending}>
+            <Button slideFill fullWidth onClick={handleCreate} isLoading={createMutation.isPending}>
               Add debt
             </Button>
             </div>

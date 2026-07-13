@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
 import {
   BarChart3,
   TrendingUp,
   Brain,
   Wallet,
   Calendar,
+  RefreshCw,
 } from 'lucide-react'
 import {
   XAxis,
@@ -20,10 +20,16 @@ import {
 } from 'recharts'
 import { useQuery } from '@tanstack/react-query'
 import PageTransition from '@/components/layout/PageTransition'
+import Button from '@/components/shared/Button'
+import Card from '@/components/shared/Card'
+import EmptyState from '@/components/shared/EmptyState'
 import AdSlot from '@/components/ui/AdSlot'
 import CheckinHeatmap from '@/components/ui/CheckinHeatmap'
 import { useCheckinStore, MOOD_LABELS } from '@/stores/checkinStore'
 import { getMoodInsights } from '@/lib/api'
+import { staggerContainer, staggerItem } from '@/lib/motion'
+import { motion } from 'framer-motion'
+
 
 function buildDayLabels(days: number): string[] {
   const labels: string[] = []
@@ -79,7 +85,7 @@ export default function Insights() {
   const [financeLoading, setFinanceLoading] = useState(true)
 
   // Fetch mood insights from server
-  const { data: moodResponse } = useQuery({
+  const { data: moodResponse, isLoading: moodLoading, isError: moodError, refetch: moodRefetch } = useQuery({
     queryKey: ['mood-insights'],
     queryFn: getMoodInsights,
   })
@@ -174,32 +180,71 @@ export default function Insights() {
         </div>
 
         {/* Stats cards */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="glass-card rounded-2xl p-4 text-center">
-            <p className="text-xs text-soro-fade mb-1">Check-ins</p>
-            <p className="text-2xl font-display font-bold text-soro-mist">
-              {totalCheckins}
-            </p>
+        {moodLoading ? (
+          <div className="grid grid-cols-3 gap-3">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} padding="sm" className="animate-pulse text-center">
+                <div className="h-3 bg-soro-surface rounded w-12 mx-auto mb-2" />
+                <div className="h-8 bg-soro-surface rounded w-16 mx-auto" />
+              </Card>
+            ))}
           </div>
-          <div className="glass-card rounded-2xl p-4 text-center">
-            <p className="text-xs text-soro-fade mb-1">Streak</p>
-            <p className="text-2xl font-display font-bold text-soro-gold">
-              {streak}
-            </p>
-            <p className="text-[10px] text-soro-fade/60">days</p>
-          </div>
-          <div className="glass-card rounded-2xl p-4 text-center">
-            <p className="text-xs text-soro-fade mb-1">Avg mood</p>
-            <p className="text-2xl font-display font-bold text-soro-mist">
-              {averageMood > 0 ? averageMood : '—'}
-            </p>
-            <p className="text-[10px] text-soro-fade/60">/ 5</p>
-          </div>
-        </div>
+        ) : moodError ? (
+          <EmptyState
+            icon={<BarChart3 size={40} />}
+            title="Failed to load insights"
+            description="Could not load your mood data. Check your connection."
+            action={
+              <Button
+                slideFill
+                onClick={() => moodRefetch()}
+                variant="primary"
+                size="sm"
+                leftIcon={<RefreshCw size={16} />}
+              >
+                Try again
+              </Button>
+            }
+          />
+        ) : (
+          <motion.div
+            variants={staggerContainer}
+            initial="initial"
+            animate="animate"
+            className="grid grid-cols-3 gap-3"
+          >
+            <motion.div variants={staggerItem}>
+              <Card padding="sm" className="text-center">
+                <p className="text-xs text-soro-fade mb-1">Check-ins</p>
+                <p className="text-2xl font-display font-bold text-soro-mist">
+                  {totalCheckins}
+                </p>
+              </Card>
+            </motion.div>
+            <motion.div variants={staggerItem}>
+              <Card padding="sm" className="text-center">
+                <p className="text-xs text-soro-fade mb-1">Streak</p>
+                <p className="text-2xl font-display font-bold text-soro-gold">
+                  {streak}
+                </p>
+                <p className="text-[10px] text-soro-fade/60">days</p>
+              </Card>
+            </motion.div>
+            <motion.div variants={staggerItem}>
+              <Card padding="sm" className="text-center">
+                <p className="text-xs text-soro-fade mb-1">Avg mood</p>
+                <p className="text-2xl font-display font-bold text-soro-mist">
+                  {averageMood > 0 ? averageMood : '—'}
+                </p>
+                <p className="text-[10px] text-soro-fade/60">/ 5</p>
+              </Card>
+            </motion.div>
+          </motion.div>
+        )}
 
         {/* Trend */}
         {hasData && (
-          <div className="glass-card rounded-2xl p-4 border-soro-earth/10">
+          <Card padding="sm">
             <div className="flex items-center gap-2">
               <TrendingUp
                 size={18}
@@ -219,7 +264,7 @@ export default function Insights() {
                     : 'Your mood has been steady.'}
               </p>
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Mood Graph */}
@@ -245,7 +290,7 @@ export default function Insights() {
             </div>
           </div>
 
-          <div className="glass-card rounded-2xl p-4 md:p-6">
+          <Card padding="lg">
             {hasData ? (
               <ResponsiveContainer width="100%" height={250}>
                 <AreaChart data={chartData}>
@@ -296,7 +341,7 @@ export default function Insights() {
                 </p>
               </div>
             )}
-          </div>
+          </Card>
         </div>
 
         {/* Check-in Heatmap (GitHub-style calendar) */}
@@ -310,12 +355,12 @@ export default function Insights() {
           {hasData ? (
             <CheckinHeatmap checkinHistory={checkinHistory} />
           ) : (
-            <div className="glass-card rounded-2xl p-6 text-center">
+            <Card padding="lg" className="text-center">
               <Calendar size={24} className="text-soro-fade/30 mx-auto mb-2" />
               <p className="text-sm text-soro-fade">
                 Start checking in to build your calendar.
               </p>
-            </div>
+            </Card>
           )}
         </div>
 
@@ -331,13 +376,13 @@ export default function Insights() {
 
             {debtStats && debtStats.total_debt > 0 && (
               <div className="grid grid-cols-2 gap-3 mb-3">
-                <div className="glass-card rounded-2xl p-4">
+                <Card padding="sm">
                   <p className="text-xs text-soro-fade mb-1">Total debt</p>
                   <p className="text-xl font-display font-bold text-soro-danger">
                     ₦{debtStats.total_debt.toLocaleString()}
                   </p>
-                </div>
-                <div className="glass-card rounded-2xl p-4">
+                </Card>
+                <Card padding="sm">
                   <p className="text-xs text-soro-fade mb-1">Paid off</p>
                   <p className="text-xl font-display font-bold text-green-400">
                     ₦{debtStats.total_paid.toLocaleString()}
@@ -345,7 +390,7 @@ export default function Insights() {
                   <p className="text-[10px] text-soro-fade/60">
                     {debtStats.cleared_count} debts cleared
                   </p>
-                </div>
+                </Card>
               </div>
             )}
 
@@ -354,8 +399,8 @@ export default function Insights() {
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="glass-card rounded-2xl p-5 border-soro-earth/10"
               >
+                <Card>
                 <div className="flex items-center gap-2 mb-4">
                   <Brain size={18} className="text-soro-ember" />
                   <h3 className="text-sm font-semibold text-soro-mist">
@@ -411,17 +456,18 @@ export default function Insights() {
                   Based on {correlation.financial_checkin_count} check-ins mentioning money or debt
                   out of {correlation.total_checkin_count} total check-ins.
                 </p>
+                </Card>
               </motion.div>
             )}
 
             {/* No finance data */}
             {!debtStats && !correlation && (
-              <div className="glass-card rounded-2xl p-6 text-center">
+              <Card padding="lg" className="text-center">
                 <Wallet size={24} className="text-soro-fade/30 mx-auto mb-2" />
                 <p className="text-sm text-soro-fade">
                   Track debts and goals to see how your finances affect your mood.
                 </p>
-              </div>
+              </Card>
             )}
           </div>
         )}
@@ -432,21 +478,22 @@ export default function Insights() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="glass-card rounded-2xl p-5 border-soro-earth/10"
           >
-            <div className="flex items-center gap-2 mb-3">
-              <Brain size={18} className="text-soro-ember" />
-              <h3 className="text-sm font-semibold text-soro-mist">
-                SORO's observation
-              </h3>
-            </div>
-            <p className="text-sm text-soro-fade leading-relaxed">
-              {trendDirection === 'up'
-                ? 'Your week has been trending upward. Notice what\'s been helping — the small things matter.'
-                : correlation && correlation.gap > 0.5
-                  ? 'Your lowest moods often follow financial stress entries. Addressing one may help the other.'
-                  : 'Keep showing up. Every check-in is a step forward, even on the hard days.'}
-            </p>
+            <Card>
+              <div className="flex items-center gap-2 mb-3">
+                <Brain size={18} className="text-soro-ember" />
+                <h3 className="text-sm font-semibold text-soro-mist">
+                  SORO's observation
+                </h3>
+              </div>
+              <p className="text-sm text-soro-fade leading-relaxed">
+                {trendDirection === 'up'
+                  ? 'Your week has been trending upward. Notice what\'s been helping — the small things matter.'
+                  : correlation && correlation.gap > 0.5
+                    ? 'Your lowest moods often follow financial stress entries. Addressing one may help the other.'
+                    : 'Keep showing up. Every check-in is a step forward, even on the hard days.'}
+              </p>
+            </Card>
           </motion.div>
         )}
 

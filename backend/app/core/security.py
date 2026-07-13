@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
+from uuid import uuid4
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -17,12 +18,30 @@ def hash_password(password: str) -> str:
     return pwd_context.hash(password)
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(
+    data: dict,
+    expires_delta: Optional[timedelta] = None,
+    purpose: str = "access",
+) -> str:
+    """
+    Create a JWT token.
+
+    Args:
+        data: Claims to include (must contain "sub" for user ID).
+        expires_delta: Optional custom expiry (defaults to config value).
+        purpose: "access" for normal API auth, "reset" for password-reset tokens.
+
+    Every token gets a unique jti (JWT ID) so it can be individually revoked.
+    """
     to_encode = data.copy()
     expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=settings.jwt_expire_minutes)
     )
-    to_encode.update({"exp": expire})
+    to_encode.update({
+        "exp": expire,
+        "jti": str(uuid4()),
+        "purpose": purpose,
+    })
     return jwt.encode(to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 

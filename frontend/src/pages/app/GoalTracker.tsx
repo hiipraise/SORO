@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Plus, ArrowLeft, Target, Zap, Clock, Sparkles, CheckCircle } from 'lucide-react'
+import { Plus, ArrowLeft, Target, Zap, Clock, Sparkles, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import PageTransition from '@/components/layout/PageTransition'
@@ -50,10 +50,12 @@ export default function GoalTracker() {
   const { addToast } = useToastStore()
   const queryClient = useQueryClient()
 
-  const { data: goals = [], isLoading } = useQuery<GoalData[]>({
+  const { data: goalsData, isLoading, isError, refetch } = useQuery({
     queryKey: ['goals'],
-    queryFn: getGoals as () => Promise<GoalData[]>,
+    queryFn: () => getGoals(0, 100),
   })
+
+  const goals = (goalsData?.items ?? []) as GoalData[]
 
   const createMutation = useMutation({
     mutationFn: (data: typeof defaultForm) => createGoal(data),
@@ -138,7 +140,7 @@ export default function GoalTracker() {
               Small goals. Big progress. One step at a time.
             </p>
           </div>
-          <Button onClick={() => setShowModal(true)} leftIcon={<Plus size={18} />}>
+          <Button slideFill onClick={() => setShowModal(true)} leftIcon={<Plus size={18} />}>
             New goal
           </Button>
         </div>
@@ -173,12 +175,28 @@ export default function GoalTracker() {
               </div>
             ))}
           </div>
+        ) : isError ? (
+          <EmptyState
+            icon={<AlertCircle size={48} />}
+            title="Failed to load goals"
+            description="Could not load your goals. Check your connection and try again."
+            action={
+              <Button
+                slideFill
+                onClick={() => refetch()}
+                variant="primary"
+                leftIcon={<RefreshCw size={18} />}
+              >
+                Try again
+              </Button>
+            }
+          />
         ) : activeGoals.length === 0 && completedGoals.length === 0 ? (
           <EmptyState
             title="No goals yet"
             description="Create your first micro-goal. Big things start small."
             action={
-              <Button onClick={() => setShowModal(true)} leftIcon={<Target size={18} />}>
+              <Button slideFill onClick={() => setShowModal(true)} leftIcon={<Target size={18} />}>
                 Create your first goal
               </Button>
             }
@@ -251,6 +269,7 @@ export default function GoalTracker() {
                           autoFocus
                         />
                         <Button
+                          slideFill
                           size="sm"
                           onClick={() => handleProgressUpdate(goal.id, progressForm.amount)}
                           disabled={!progressForm.amount || progressForm.amount <= 0 || progressing.has(goal.id)}
@@ -366,7 +385,7 @@ export default function GoalTracker() {
               <Button variant="ghost" fullWidth onClick={() => { setShowModal(false); setForm(defaultForm) }}>
                 Cancel
               </Button>
-            <Button fullWidth onClick={handleCreate} isLoading={createMutation.isPending}>
+            <Button slideFill fullWidth onClick={handleCreate} isLoading={createMutation.isPending}>
               Create goal
             </Button>
             </div>

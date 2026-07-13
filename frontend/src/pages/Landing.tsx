@@ -14,6 +14,9 @@ import {
 import InstallPrompt from "@/components/pwa/InstallPrompt";
 import CrisisButton from "@/components/ui/CrisisButton";
 import Card from "@/components/shared/Card";
+import ProblemInfographic from "@/components/shared/ProblemInfographic";
+import HowItWorksInfographic from "@/components/shared/HowItWorksInfographic";
+import HeroMosaic from "@/components/shared/HeroMosaic";
 import {
   ScribbleCircle,
   ScribbleUnderline,
@@ -173,19 +176,33 @@ export default function Landing() {
 
       <main>
         {/* ─── Hero ─── */}
-        <section className="relative min-h-[80dvh] flex items-center justify-center px-4 pt-20 pb-16 overflow-hidden">
-          {/* Background gradient */}
-          <div className="absolute inset-0 bg-gradient-to-b from-soro-ember/5 via-transparent to-soro-deep pointer-events-none" />
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-soro-ember/3 rounded-full blur-3xl" />
-          <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-soro-earth/3 rounded-full blur-3xl" />
+        <section className="relative min-h-[90dvh] flex items-end md:items-center justify-center px-4 pt-20 pb-16 overflow-hidden">
+          {/* Mosaic — full-bleed background, no box */}
+          <div className="absolute inset-0">
+            <HeroMosaic
+              images={[
+                { src: "/assets/img/in_debt.jpg", alt: "" },
+                { src: "/assets/img/student.jpg", alt: "" },
+                { src: "/assets/img/hero.jpg", alt: "" },
+                { src: "/assets/img/young_grad.jpg", alt: "" },
+                { src: "/assets/img/grieving.jpg", alt: "" },
+              ]}
+              className="grayscale contrast-125"
+            />
+            {/* Fade the mosaic into soro-deep at every edge */}
+            <div className="absolute inset-0 bg-gradient-to-t from-soro-deep via-soro-deep/70 to-soro-deep/20" />
+            <div className="absolute inset-0 bg-gradient-to-b from-soro-deep/90 via-transparent to-transparent h-32" />
+            <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-soro-deep to-transparent" />
+            <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-soro-deep to-transparent hidden md:block" />
+            <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-soro-deep to-transparent hidden md:block" />
+          </div>
 
-          <div className="relative flex flex-col md:flex-row items-center gap-8 md:gap-16 max-w-5xl mx-auto">
-            {/* Text column */}
+          {/* Text column — sits on top of the mosaic */}
+          <div className="relative max-w-3xl mx-auto text-center z-10">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: "easeOut" }}
-              className="flex-1 text-center md:text-left"
             >
               <h1 className="text-4xl md:text-6xl lg:text-7xl font-display font-bold text-soro-mist leading-tight mb-6">
                 You dey carry
@@ -196,13 +213,13 @@ export default function Landing() {
                 today?
               </h1>
 
-              <p className="text-lg md:text-xl text-soro-fade/80 max-w-xl mb-8 leading-relaxed">
+              <p className="text-lg md:text-xl text-soro-fade/80 max-w-xl mb-8 leading-relaxed mx-auto">
                 SORO is a safe, anonymous space to process pain, track progress,
                 and build financial footing — daily. Built for Nigerian youth,
                 by someone who lived it.
               </p>
 
-              <div className="flex flex-col sm:flex-row items-center md:justify-start gap-3">
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
                 <Link
                   to="/onboarding"
                   className="btn-ember px-8 py-3 rounded-xl text-base font-semibold inline-flex items-center gap-2"
@@ -217,71 +234,6 @@ export default function Landing() {
                   Create account
                 </Link>
               </div>
-
-              <p className="text-xs text-soro-fade/60 mt-4">
-                60 seconds to start. No email required.
-              </p>
-            </motion.div>
-
-            {/* Photo placeholder — swap this div for an <img> when you have a real photo */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.7, delay: 0.2, ease: "easeOut" }}
-              className="shrink-0 relative w-64 h-64 md:w-80 md:h-80 lg:w-96 lg:h-96"
-            >
-              {/* Warm gradient silhouette */}
-              <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-soro-ember/20 via-soro-gold/10 to-soro-surface/50 overflow-hidden border border-soro-earth/15">
-                {/* Abstract person silhouette */}
-                <svg
-                  viewBox="0 0 400 400"
-                  fill="none"
-                  className="w-full h-full opacity-40"
-                  aria-hidden
-                >
-                  {/* Head */}
-                  <ellipse
-                    cx="200"
-                    cy="120"
-                    rx="55"
-                    ry="60"
-                    fill="url(#hero-grad)"
-                  />
-                  {/* Body */}
-                  <path
-                    d="M130 220 C130 170 270 170 270 220 L280 320 C280 350 120 350 120 320 L130 220Z"
-                    fill="url(#hero-grad)"
-                  />
-                  {/* Phone arm */}
-                  <path
-                    d="M270 240 C310 260 340 300 330 310 C320 320 300 280 270 260Z"
-                    fill="url(#hero-grad)"
-                  />
-                  {/* Phone */}
-                  <rect
-                    x="318"
-                    y="274"
-                    width="20"
-                    height="38"
-                    rx="3"
-                    fill="url(#hero-grad)"
-                    opacity="0.6"
-                  />
-                  {/* Gradient definition */}
-                  <defs>
-                    <linearGradient id="hero-grad" x1="0" y1="0" x2="1" y2="1">
-                      <stop stopColor="#E8834A" />
-                      <stop offset="1" stopColor="#F5C842" />
-                    </linearGradient>
-                  </defs>
-                </svg>
-              </div>
-              {/* Glow behind */}
-              <div className="absolute -inset-4 bg-soro-ember/5 rounded-full blur-2xl -z-10" />
-              {/* Label */}
-              <p className="absolute -bottom-6 left-1/2 -translate-x-1/2 text-[10px] text-soro-fade/40 whitespace-nowrap">
-                Photo coming soon
-              </p>
             </motion.div>
           </div>
         </section>
@@ -301,12 +253,13 @@ export default function Landing() {
               </p>
             </div>
 
+            {/* Mobile: original stacked cards */}
             <motion.div
               variants={staggerContainer}
               initial="initial"
               whileInView="animate"
               viewport={{ once: true }}
-              className="grid md:grid-cols-3 gap-4"
+              className="grid gap-4 md:hidden"
             >
               {problemStatements.map((item, i) => (
                 <motion.div key={i} variants={staggerItem}>
@@ -321,6 +274,11 @@ export default function Landing() {
                 </motion.div>
               ))}
             </motion.div>
+
+            {/* Desktop: connected infographic */}
+            <div className="hidden md:flex justify-center">
+              <ProblemInfographic items={problemStatements} />
+            </div>
           </div>
         </section>
 
@@ -339,31 +297,38 @@ export default function Landing() {
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Mental Wellness — calming radial glow texture */}
-              <Card
-                variant="safe"
-                padding="lg"
-                className="relative overflow-hidden"
+            <div className="relative grid md:grid-cols-2 gap-x-10 gap-y-14 md:gap-y-0 max-w-3xl mx-auto">
+              {/* Dotted connector — desktop only, sits between the two cards */}
+              <svg
+                className="hidden md:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                width="80"
+                height="2"
+                viewBox="0 0 80 2"
               >
-                {/* Calming organic background texture */}
-                <div
-                  className="absolute -top-20 -right-20 w-60 h-60 rounded-full opacity-20 pointer-events-none"
-                  style={{
-                    background:
-                      "radial-gradient(circle at 30% 50%, rgba(46, 139, 87, 0.3) 0%, transparent 60%)",
-                  }}
+                <line
+                  x1="0" y1="1" x2="80" y2="1"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeDasharray="4 5"
+                  strokeLinecap="round"
+                  className="text-soro-fade/40"
                 />
-                <div
-                  className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full opacity-10 pointer-events-none"
+              </svg>
+
+              {/* ── Card 1: Mental Wellness — icon badge bottom, number top-right ── */}
+              <div className="relative pt-2 pr-6">
+                {/* Outlined number, floating top-right, outside the card */}
+                <span
+                  className="absolute -top-6 -right-2 md:-right-4 text-6xl font-display font-black leading-none select-none pointer-events-none"
                   style={{
-                    background:
-                      "radial-gradient(circle at 70% 50%, rgba(46, 139, 87, 0.2) 0%, transparent 50%)",
+                    WebkitTextStroke: "1.5px rgba(74, 222, 128, 0.5)",
+                    WebkitTextFillColor: "transparent",
                   }}
-                />
-                {/* Content (relative to sit above textures) */}
-                <div className="relative">
-                  <Shield size={28} className="text-green-400 mb-4" />
+                >
+                  01
+                </span>
+
+                <div className="relative rounded-[2rem] border-2 border-green-400/40 pt-8 pb-10 px-6">
                   <h3 className="text-lg font-display font-semibold text-soro-mist mb-2">
                     Mental Wellness
                   </h3>
@@ -385,50 +350,22 @@ export default function Landing() {
                       Daily anchors for grounding
                     </li>
                   </ul>
-                </div>
-              </Card>
 
-              {/* Financial Resilience — subtle chart-grid texture */}
-              <Card
-                variant="highlight"
-                padding="lg"
-                className="relative overflow-hidden"
-              >
-                {/* Dot-grid chart texture */}
-                <div
-                  className="absolute inset-0 pointer-events-none opacity-30"
-                  style={{
-                    backgroundImage:
-                      "radial-gradient(circle, rgba(245, 200, 66, 0.15) 1px, transparent 1px)",
-                    backgroundSize: "24px 24px",
-                  }}
-                />
-                {/* Chart-like rising line accent */}
-                <svg
-                  viewBox="0 0 200 80"
-                  className="absolute bottom-0 right-0 w-48 h-20 opacity-10 pointer-events-none"
-                  aria-hidden
-                >
-                  <path
-                    d="M0 70 L30 60 L60 65 L100 40 L140 25 L170 30 L200 10"
-                    fill="none"
-                    stroke="#F5C842"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                  <path
-                    d="M0 70 L30 60 L60 65 L100 40 L140 25 L170 30 L200 10"
-                    fill="none"
-                    stroke="#F5C842"
-                    strokeWidth="6"
-                    strokeLinecap="round"
-                    opacity="0.3"
-                    filter="blur(4px)"
-                  />
-                </svg>
-                {/* Content */}
-                <div className="relative">
-                  <LineChart size={28} className="text-soro-gold mb-4" />
+                  {/* Icon badge — overlaps the bottom border, like a notch */}
+                  <div className="absolute -bottom-6 left-8 w-14 h-14 rounded-full bg-soro-deep border-2 border-green-400/40 flex items-center justify-center">
+                    <Shield size={22} className="text-green-400" />
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Card 2: Financial Resilience — icon badge top, number bottom-right ── */}
+              <div className="relative pt-8 pr-6">
+                {/* Icon badge — overlaps the top border */}
+                <div className="absolute -top-6 left-8 w-14 h-14 rounded-full bg-soro-deep border-2 border-soro-gold/40 flex items-center justify-center z-10">
+                  <LineChart size={22} className="text-soro-gold" />
+                </div>
+
+                <div className="relative rounded-[2rem] border-2 border-soro-gold/40 pt-10 pb-10 px-6">
                   <h3 className="text-lg font-display font-semibold text-soro-mist mb-2">
                     Financial Resilience
                   </h3>
@@ -447,7 +384,18 @@ export default function Landing() {
                     </li>
                   </ul>
                 </div>
-              </Card>
+
+                {/* Outlined number, floating bottom-right, outside the card */}
+                <span
+                  className="absolute -bottom-8 -right-2 md:-right-4 text-6xl font-display font-black leading-none select-none pointer-events-none"
+                  style={{
+                    WebkitTextStroke: "1.5px rgba(245, 200, 66, 0.5)",
+                    WebkitTextFillColor: "transparent",
+                  }}
+                >
+                  02
+                </span>
+              </div>
             </div>
           </div>
         </section>
@@ -466,19 +414,16 @@ export default function Landing() {
               </p>
             </div>
 
+            {/* Mobile: original stacked grid */}
             <motion.div
               variants={staggerContainer}
               initial="initial"
               whileInView="animate"
               viewport={{ once: true }}
-              className="grid md:grid-cols-3 gap-6"
+              className="grid gap-6 md:hidden"
             >
               {howItWorks.map((item, i) => (
-                <motion.div
-                  key={i}
-                  variants={staggerItem}
-                  className="text-center"
-                >
+                <motion.div key={i} variants={staggerItem} className="text-center">
                   <div className="w-16 h-16 rounded-2xl bg-soro-ember/10 flex items-center justify-center mx-auto mb-4">
                     <item.icon size={28} className="text-soro-ember" />
                   </div>
@@ -492,6 +437,11 @@ export default function Landing() {
                 </motion.div>
               ))}
             </motion.div>
+
+            {/* Desktop: wavy connected infographic */}
+            <div className="hidden md:flex justify-center">
+              <HowItWorksInfographic items={howItWorks} />
+            </div>
           </div>
         </section>
 
@@ -617,17 +567,36 @@ export default function Landing() {
             check-ins or journal. No premium. No paywall. Just a hand when you
             need it.
           </p>
-          <div className="mt-6 text-xs text-soro-fade/50">
-            &copy; {new Date().getFullYear()} SORO. All rights reserved.
-          </div>
         </div>
       </footer>
-
+      {/* ─── Giant Hollow SORO ─── */}
+      {/* ─── Giant Hollow SORO ─── */}
+      <section className="relative overflow-hidden flex items-end justify-center select-none pointer-events-none -mt-4 md:-mt-6 h-[28vw] md:h-[24vw] lg:h-[20vw]">
+        <motion.h2
+          initial={{ opacity: 0, y: 30 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, margin: "-40px" }}
+          transition={{ duration: 1.2, ease: "easeOut" }}
+          className="font-display font-black text-[48vw] md:text-[40vw] lg:text-[34vw] leading-none tracking-tighter translate-y-[55%]"
+          style={{
+            WebkitTextStroke: "1.5px rgba(232, 131, 74, 0.22)",
+            WebkitTextFillColor: "transparent",
+          }}
+        >
+          SORO
+        </motion.h2>
+      </section>
       {/* PWA Install Prompt */}
       <InstallPrompt />
 
       {/* Crisis Button */}
       <CrisisButton />
+
+      <div className="text-center pb-6 pt-2">
+        <p className="text-xs text-soro-fade/50">
+          &copy; {new Date().getFullYear()} SORO. All rights reserved.
+        </p>
+      </div>
     </div>
   );
 }

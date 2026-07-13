@@ -16,15 +16,7 @@ function clearToken() {
   localStorage.removeItem('soro_token')
 }
 
-function getAnonymousId(): string | null {
-  return localStorage.getItem('soro_anonymous_id')
-}
-
-function setAnonymousId(id: string) {
-  localStorage.setItem('soro_anonymous_id', id)
-}
-
-export { getToken, setToken, clearToken, getAnonymousId, setAnonymousId }
+export { getToken, setToken, clearToken }
 
 export async function api<T = unknown>(
   endpoint: string,
@@ -42,11 +34,6 @@ export async function api<T = unknown>(
     headers['Authorization'] = `Bearer ${token}`
   }
 
-  const anonymousId = getAnonymousId()
-  if (anonymousId) {
-    headers['X-Anonymous-Id'] = anonymousId
-  }
-
   let url = `${API_BASE}${endpoint}`
   if (params) {
     const searchParams = new URLSearchParams(params)
@@ -60,6 +47,12 @@ export async function api<T = unknown>(
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ detail: 'Network error' }))
+
+    // P0.4/P3.16: Central 401 handling — emit event for top-level listener
+    if (response.status === 401) {
+      window.dispatchEvent(new CustomEvent('soro:session-expired'))
+    }
+
     throw new ApiError(response.status, error.detail || 'Request failed')
   }
 
@@ -96,11 +89,19 @@ export async function login(email: string, password: string) {
 }
 
 export async function createAnonymousSession() {
-  const data = await api<{ token: string; anonymous_id: string }>('/auth/anonymous', {
+  const data = await api<{ token: string; anonymous_id: string; user: { id: string; is_anonymous: boolean; created_at: string } }>('/auth/anonymous', {
     method: 'POST',
   })
   setToken(data.token)
-  setAnonymousId(data.anonymous_id)
+  return data
+}
+
+export async function claimAccount(email: string, password: string) {
+  const data = await api<{ token: string; user: Record<string, unknown> }>('/auth/claim-account', {
+    method: 'POST',
+    body: JSON.stringify({ email, password }),
+  })
+  setToken(data.token)
   return data
 }
 
@@ -111,6 +112,19 @@ export async function logout() {
     // Swallow — we clear locally regardless
   }
   clearToken()
+  // Clear PWA cached data on logout
+  try {
+    if ('caches' in window) {
+      const cacheKeys = await caches.keys()
+      for (const key of cacheKeys) {
+        if (key.includes('api-cache') || key.includes('soro')) {
+          await caches.delete(key)
+        }
+      }
+    }
+  } catch {
+    // Best-effort cache clearing
+  }
 }
 
 // ─── Check-in API ───
@@ -141,8 +155,10 @@ export async function getReflections() {
 
 // ─── Journal API ───
 
-export async function getJournalEntries() {
-  return api('/journal/')
+export async function getJournalEntries(skip = 0, limit = 20) {
+  return api<{ items: any[]; total: number; skip: number; limit: number; has_more: boolean }>(
+    `/journal/?skip=${skip}&limit=${limit}`,
+  )
 }
 
 export async function getJournalEntry(id: string) {
@@ -186,8 +202,10 @@ export async function getAnchorArchive() {
 
 // ─── Finance API ───
 
-export async function getDebts() {
-  return api('/finance/debts/')
+export async function getDebts(skip = 0, limit = 100) {
+  return api<{ items: any[]; total: number; skip: number; limit: number; has_more: boolean }>(
+    `/finance/debts/?skip=${skip}&limit=${limit}`,
+  )
 }
 
 export async function createDebt(data: {
@@ -231,8 +249,10 @@ export async function payDebt(debtId: string, amount: number) {
   })
 }
 
-export async function getGoals() {
-  return api('/finance/goals/')
+export async function getGoals(skip = 0, limit = 100) {
+  return api<{ items: any[]; total: number; skip: number; limit: number; has_more: boolean }>(
+    `/finance/goals/?skip=${skip}&limit=${limit}`,
+  )
 }
 
 export async function createGoal(data: {
@@ -264,77 +284,10 @@ export async function updateGoal(
   })
 }
 
-// ─── Community API ───
-
-export async function getCommunityPosts(topic?: string) {
-  const params: Record<string, string> = {}
-  if (topic) params.topic = topic
-  return api('/community/posts/', { params })
-}
-
-export async function createCommunityPost(data: {
-  content: string
-  topic_tag?: string
-}) {
-  return api('/community/posts/', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
-}
-
-export async function reactToPost(postId: string, reaction: string) {
-  return api(`/community/posts/${postId}/react`, {
-    method: 'POST',
-    body: JSON.stringify({ reaction }),
-  })
-}
-
 // ─── Insights API ───
 
 export async function getMoodInsights() {
   return api('/insights/mood')
-}
-
-// ─── Circles API ───
-
-export async function getCircles(topic?: string) {
-  const params: Record<string, string> = {}
-  if (topic) params.topic = topic
-  return api('/circles/', { params })
-}
-
-export async function getCircle(id: string) {
-  return api(`/circles/${id}`)
-}
-
-export async function createCircle(data: {
-  name: string
-  topic?: string
-  max_members?: number
-}) {
-  return api('/circles/', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  })
-}
-
-export async function joinCircle(id: string) {
-  return api(`/circles/${id}/join`, { method: 'POST' })
-}
-
-export async function leaveCircle(id: string) {
-  return api(`/circles/${id}/leave`, { method: 'POST' })
-}
-
-export async function getCircleMessages(id: string) {
-  return api(`/circles/${id}/messages`)
-}
-
-export async function sendCircleMessage(id: string, content: string) {
-  return api(`/circles/${id}/messages`, {
-    method: 'POST',
-    body: JSON.stringify({ content }),
-  })
 }
 
 // ─── Settings API ───

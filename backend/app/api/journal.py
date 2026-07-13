@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 
 from app.models.journal_entry import JournalEntry
 from app.api.deps import get_current_user_id, get_or_404
+from app.core.crisis import detect_crisis, crisis_response
+from app.core.config import get_settings
 
 router = APIRouter(prefix="/journal", tags=["journal"])
 
@@ -22,15 +24,25 @@ class UpdateJournalEntryRequest(BaseModel):
 
 
 @router.get("/")
-async def list_journal_entries(user_id: str = Depends(get_current_user_id)):
-    """Get all journal entries for the current user."""
+async def list_journal_entries(
+    user_id: str = Depends(get_current_user_id),
+    skip: int = 0,
+    limit: int = 20,
+):
+    """Get journal entries for the current user with pagination."""
+    limit = min(limit, 50)  # Cap at 50
+
+    total = await JournalEntry.find(JournalEntry.user_id == user_id).count()
+
     entries = (
         await JournalEntry.find(JournalEntry.user_id == user_id)
         .sort(-JournalEntry.created_at)
+        .skip(skip)
+        .limit(limit)
         .to_list()
     )
 
-    return [
+    items = [
         {
             "id": str(e.id),
             "title": e.title,
@@ -42,6 +54,14 @@ async def list_journal_entries(user_id: str = Depends(get_current_user_id)):
         }
         for e in entries
     ]
+
+    return {
+        "items": items,
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+        "has_more": (skip + limit) < total,
+    }
 
 
 @router.get("/{entry_id}")
@@ -71,6 +91,14 @@ async def create_journal_entry(
     user_id: str = Depends(get_current_user_id),
 ):
     """Create a new journal entry."""
+    # Crisis check — flag but never block
+    crisis_flag = False
+    crisis_msg = None
+    if detect_crisis(req.content):
+        crisis_flag = True
+        settings_crisis = get_settings()
+        crisis_msg = crisis_response(settings_crisis.crisis_organization, settings_crisis.crisis_number)
+
     entry = JournalEntry(
         user_id=user_id,
         title=req.title,
@@ -87,6 +115,8 @@ async def create_journal_entry(
         "is_locked": entry.is_locked,
         "created_at": entry.created_at.isoformat(),
         "updated_at": entry.updated_at.isoformat(),
+        "crisis_flag": crisis_flag,
+        "crisis_message": crisis_msg,
     }
 
 
@@ -104,6 +134,15 @@ async def update_journal_entry(
     from datetime import datetime, timezone
 
     update_data = req.model_dump(exclude_none=True)
+
+    # Crisis check on content update — flag but never block
+    crisis_flag = False
+    crisis_msg = None
+    if "content" in update_data and detect_crisis(update_data["content"]):
+        crisis_flag = True
+        settings_crisis = get_settings()
+        crisis_msg = crisis_response(settings_crisis.crisis_organization, settings_crisis.crisis_number)
+
     for field, value in update_data.items():
         setattr(entry, field, value)
     entry.updated_at = datetime.now(timezone.utc)
@@ -118,6 +157,8 @@ async def update_journal_entry(
         "is_locked": entry.is_locked,
         "created_at": entry.created_at.isoformat(),
         "updated_at": entry.updated_at.isoformat(),
+        "crisis_flag": crisis_flag,
+        "crisis_message": crisis_msg,
     }
 
 

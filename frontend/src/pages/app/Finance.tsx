@@ -1,14 +1,16 @@
 import { Link } from 'react-router-dom'
-import { motion } from 'framer-motion'
 import {
   TrendingDown, TrendingUp, ArrowRight, Wallet, Target,
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import PageTransition from '@/components/layout/PageTransition'
+import Card from '@/components/shared/Card'
 import Button from '@/components/shared/Button'
 import ProgressBar from '@/components/shared/ProgressBar'
 import AdSlot from '@/components/ui/AdSlot'
 import { getDebts, getGoals } from '@/lib/api'
+import { motion } from 'framer-motion'
+import { staggerContainer, staggerItem } from '@/lib/motion'
 
 interface DebtData {
   id: string
@@ -82,55 +84,54 @@ export default function FinanceDashboard() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 gap-3">
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="glass-card rounded-2xl p-5"
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingDown size={18} className="text-soro-danger" />
-              <span className="text-xs text-soro-fade uppercase tracking-wider">Remaining debt</span>
-            </div>
-            <p className={`text-2xl font-display font-bold ${severityColor[getDebtSeverity()]}`}>
-              ₦{totalDebt.toLocaleString()}
-            </p>
-            <p className="text-xs text-soro-fade mt-1">
-              {severityLabel[getDebtSeverity()]}
-            </p>
+        <motion.div
+          variants={staggerContainer}
+          initial="initial"
+          animate="animate"
+          className="grid grid-cols-2 gap-3"
+        >
+          <motion.div variants={staggerItem}>
+            <Card>
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingDown size={18} className="text-soro-danger" />
+                <span className="text-xs text-soro-fade uppercase tracking-wider">Remaining debt</span>
+              </div>
+              <p className={`text-2xl font-display font-bold ${severityColor[getDebtSeverity()]}`}>
+                ₦{totalDebt.toLocaleString()}
+              </p>
+              <p className="text-xs text-soro-fade mt-1">
+                {severityLabel[getDebtSeverity()]}
+              </p>
+            </Card>
           </motion.div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="glass-card rounded-2xl p-5"
-          >
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUp size={18} className="text-green-400" />
-              <span className="text-xs text-soro-fade uppercase tracking-wider">Active goals</span>
-            </div>
-            <p className="text-2xl font-display font-bold text-soro-mist">
-              {activeGoals.length}
-            </p>
-            <p className="text-xs text-soro-fade mt-1">
-              {completedGoals.length > 0
-                ? `${completedGoals.length} completed ✨`
-                : 'No goals completed yet'}
-            </p>
+          <motion.div variants={staggerItem}>
+            <Card>
+              <div className="flex items-center gap-2 mb-3">
+                <TrendingUp size={18} className="text-green-400" />
+                <span className="text-xs text-soro-fade uppercase tracking-wider">Active goals</span>
+              </div>
+              <p className="text-2xl font-display font-bold text-soro-mist">
+                {activeGoals.length}
+              </p>
+              <p className="text-xs text-soro-fade mt-1">
+                {completedGoals.length > 0
+                  ? `${completedGoals.length} completed ✨`
+                  : 'No goals completed yet'}
+              </p>
+            </Card>
           </motion.div>
-        </div>
+        </motion.div>
 
         {/* Quick Actions */}
         <div className="flex gap-3">
           <Link to="/app/finance/debt" className="flex-1">
-            <Button variant="secondary" fullWidth leftIcon={<Wallet size={16} />}>
+            <Button slideFill variant="secondary" fullWidth leftIcon={<Wallet size={16} />}>
               Manage debts
             </Button>
           </Link>
           <Link to="/app/finance/goals" className="flex-1">
-            <Button fullWidth leftIcon={<Target size={16} />}>
+            <Button slideFill fullWidth leftIcon={<Target size={16} />}>
               Manage goals
             </Button>
           </Link>

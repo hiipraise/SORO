@@ -113,6 +113,7 @@ export default function Checkin() {
 
         {/* Submit */}
         <Button
+          slideFill
           onClick={handleSubmit}
           fullWidth
           size="lg"

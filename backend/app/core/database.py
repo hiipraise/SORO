@@ -9,9 +9,9 @@ from app.models.journal_entry import JournalEntry
 from app.models.anchor import Anchor
 from app.models.debt import Debt
 from app.models.goal import Goal
-from app.models.community_post import CommunityPost
-from app.models.circle import PeerCircle
-from app.models.circle_message import CircleMessage
+
+from app.models.revoked_token import RevokedToken
+from app.services.scheduler import JobLock
 
 settings = get_settings()
 
@@ -24,9 +24,9 @@ DOCUMENT_MODELS = [
     Anchor,
     Debt,
     Goal,
-    CommunityPost,
-    PeerCircle,
-    CircleMessage,
+    
+    RevokedToken,
+    JobLock,
 ]
 
 

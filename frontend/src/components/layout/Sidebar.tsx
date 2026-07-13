@@ -6,12 +6,10 @@ import {
   BarChart3,
   Anchor,
   Settings,
-  MessageSquare,
   Heart,
   Sparkles,
   Wallet,
   Target,
-  Users,
 } from 'lucide-react'
 
 const mainNav = [
@@ -28,11 +26,6 @@ const financeNav = [
   { to: '/app/finance', label: 'Finance', icon: Wallet },
   { to: '/app/finance/debt', label: 'Debt Tracker', icon: Target },
   { to: '/app/finance/goals', label: 'Micro-Goals', icon: Sparkles },
-]
-
-const communityNav = [
-  { to: '/app/community', label: 'Vent Wall', icon: MessageSquare },
-  { to: '/app/circles', label: 'Peer Circles', icon: Users },
 ]
 
 export default function Sidebar() {
@@ -95,27 +88,7 @@ export default function Sidebar() {
           ))}
         </div>
 
-        <p className="px-3 text-xs font-medium text-soro-fade uppercase tracking-wider mt-6 mb-2">
-          Community
-        </p>
-        <div className="flex flex-col gap-0.5">
-          {communityNav.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) =>
-                `flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  isActive
-                    ? 'bg-soro-ember/10 text-soro-ember'
-                    : 'text-soro-fade hover:text-soro-mist hover:bg-soro-surface/50'
-                }`
-              }
-            >
-              <item.icon size={18} />
-              {item.label}
-            </NavLink>
-          ))}
-        </div>
+
       </nav>
 
       {/* Footer */}

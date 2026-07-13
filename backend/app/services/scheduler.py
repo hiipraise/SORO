@@ -9,6 +9,8 @@ from datetime import datetime, timezone, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
+from beanie import Document
+from pydantic import Field
 
 from app.core.config import get_settings
 from app.models.user import User
@@ -21,12 +23,42 @@ scheduler = AsyncIOScheduler()
 settings = get_settings()
 
 
+class JobLock(Document):
+    """
+    Distributed lock for scheduled jobs, using Mongo's unique index to prevent
+    duplicate execution across multiple instances.
+    The _id is a deterministic string like "weekly_digest_lock_2026-W28".
+    """
+    id: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    class Settings:
+        name = "job_locks"
+
+    def __repr__(self):
+        return f"<JobLock {self.id}>"
+
+
 async def weekly_digest_job():
     """
     Send personalized weekly digest emails to all non-anonymous users
     who have checked in at least once in the past week.
+    Uses a Mongo-based distributed lock to prevent duplicates on horizontal scale.
     Runs every Sunday at the configured hour/minute.
     """
+    # P2.13: Mongo-based distributed lock
+    today = datetime.now(timezone.utc)
+    iso_year, iso_week, _ = today.isocalendar()
+    lock_id = f"weekly_digest_lock_{iso_year}-W{iso_week:02d}"
+
+    try:
+        lock = JobLock(id=lock_id)
+        await lock.insert()
+        logger.info(f"Acquired lock {lock_id}")
+    except Exception:
+        logger.info(f"Lock {lock_id} already held by another instance — skipping this run")
+        return
+
     logger.info("Starting weekly digest job...")
 
     # Get all non-anonymous users with email addresses
@@ -62,8 +94,8 @@ async def weekly_digest_job():
                 skipped_count += 1
                 continue
 
-            # Get user's first name from email (before @)
-            first_name = user.email.split("@")[0].capitalize()
+            # Use display_name if set, otherwise derive from email
+            first_name = user.display_name or user.email.split("@")[0].split(".")[0].capitalize()
 
             success = await send_personalized_digest(
                 email=user.email,
