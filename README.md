@@ -22,7 +22,7 @@ SORO is a full-stack app with:
 ## Prerequisites
 
 - Node.js (for frontend)
-- Python 3.10+ (for backend)
+- Python 3.11 (for backend; pinned for deploys in `.python-version` and `backend/.python-version`)
 - MongoDB running (local or hosted)
 - (Optional) Redis (Upstash) for additional features
 - (Optional) API keys for AI/email providers used by the backend
