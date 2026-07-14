@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -104,6 +104,19 @@ const audienceCards = [
 
 export default function Landing() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const sentences = [
+    "You can't fix someone's finances if their mind is underwater.",
+    "You can't fix someone's mind if they're drowning financially.",
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev === 0 ? 1 : 0));
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <div className="min-h-screen bg-soro-deep">
@@ -286,74 +299,65 @@ export default function Landing() {
         <section className="px-4 py-20 bg-soro-surface/30">
           <div className="max-w-4xl mx-auto">
             <div className="text-center mb-12">
-              <h2 className="text-2xl md:text-3xl font-display font-bold text-soro-mist mb-3">
+              <h2 className="text-2xl md:text-3xl font-display font-bold text-soro-mist">
                 Two doors. One room.
               </h2>
-              <p className="text-soro-fade text-base max-w-lg mx-auto">
-                <ScribbleUnderline>
-                  You can't fix someone's finances if their mind is underwater.
-                  You can't fix someone's mind if they're drowning financially.
-                </ScribbleUnderline>
-              </p>
+              <div className="relative text-soro-fade text-base max-w-lg mx-auto h-12 flex items-center justify-center">
+                <AnimatePresence mode="wait">
+                  <motion.p
+                    key={currentIndex}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    transition={{ duration: 0.6, ease: "easeInOut" }}
+                    className="absolute"
+                  >
+                    {sentences[currentIndex]}
+                  </motion.p>
+                </AnimatePresence>
+              </div>
             </div>
 
             <div className="relative grid md:grid-cols-2 gap-x-10 gap-y-14 md:gap-y-0 max-w-3xl mx-auto">
-              {/* Dotted connector — desktop only, sits between the two cards */}
-              <svg
-                className="hidden md:block absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
-                width="80"
-                height="2"
-                viewBox="0 0 80 2"
-              >
-                <line
-                  x1="0" y1="1" x2="80" y2="1"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeDasharray="4 5"
-                  strokeLinecap="round"
-                  className="text-soro-fade/40"
-                />
-              </svg>
-
               {/* ── Card 1: Mental Wellness — icon badge bottom, number top-right ── */}
               <div className="relative pt-2 pr-6">
                 {/* Outlined number, floating top-right, outside the card */}
                 <span
                   className="absolute -top-6 -right-2 md:-right-4 text-6xl font-display font-black leading-none select-none pointer-events-none"
                   style={{
-                    WebkitTextStroke: "1.5px rgba(74, 222, 128, 0.5)",
+                    WebkitTextStroke: "1.5px rgba(245, 200, 66, 0.5)",
                     WebkitTextFillColor: "transparent",
                   }}
                 >
                   01
                 </span>
 
-                <div className="relative rounded-[2rem] border-2 border-green-400/40 pt-8 pb-10 px-6">
+                <div className="relative rounded-[2rem] border-2 border-soro-gold/40 pt-8 pb-10 px-6">
                   <h3 className="text-lg font-display font-semibold text-soro-mist mb-2">
                     Mental Wellness
                   </h3>
                   <ul className="space-y-2 text-sm text-soro-fade">
                     <li className="flex items-start gap-2">
-                      <span className="text-green-400 mt-0.5">→</span>
+                      <span className="text-soro-gold mt-0.5">→</span>
                       Anonymous daily check-ins
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-green-400 mt-0.5">→</span>
+                      <span className="text-soro-gold mt-0.5">→</span>
                       AI reflection built for the Nigerian experience
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-green-400 mt-0.5">→</span>
+                      <span className="text-soro-gold mt-0.5">→</span>
                       Private journal with mood tracking
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-green-400 mt-0.5">→</span>
+                      <span className="text-soro-gold mt-0.5">→</span>
                       Daily anchors for grounding
                     </li>
                   </ul>
 
                   {/* Icon badge — overlaps the bottom border, like a notch */}
-                  <div className="absolute -bottom-6 left-8 w-14 h-14 rounded-full bg-soro-deep border-2 border-green-400/40 flex items-center justify-center">
-                    <Shield size={22} className="text-green-400" />
+                  <div className="absolute -bottom-6 left-8 w-14 h-14 rounded-full bg-soro-deep border-2 border-soro-gold/40 flex items-center justify-center">
+                    <Shield size={22} className="text-soro-gold" />
                   </div>
                 </div>
               </div>
@@ -423,7 +427,11 @@ export default function Landing() {
               className="grid gap-6 md:hidden"
             >
               {howItWorks.map((item, i) => (
-                <motion.div key={i} variants={staggerItem} className="text-center">
+                <motion.div
+                  key={i}
+                  variants={staggerItem}
+                  className="text-center"
+                >
                   <div className="w-16 h-16 rounded-2xl bg-soro-ember/10 flex items-center justify-center mx-auto mb-4">
                     <item.icon size={28} className="text-soro-ember" />
                   </div>

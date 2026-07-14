@@ -4,6 +4,7 @@ import { motion } from 'framer-motion'
 import { ArrowLeft, Mail, CheckCircle } from 'lucide-react'
 import Input from '@/components/shared/Input'
 import Button from '@/components/shared/Button'
+import HeroMosaic from '@/components/shared/HeroMosaic'
 import { api } from '@/lib/api'
 
 export default function ForgotPassword() {
@@ -36,12 +37,31 @@ export default function ForgotPassword() {
   }
 
   return (
-    <div className="min-h-screen bg-soro-deep flex items-center justify-center px-4 py-8">
+    <div className="relative min-h-screen bg-soro-deep flex items-center justify-center px-4 py-8 overflow-hidden">
+      {/* Mosaic background */}
+      <div className="absolute inset-0">
+        <HeroMosaic
+          images={[
+            { src: "/assets/img/in_debt.jpg", alt: "" },
+            { src: "/assets/img/student.jpg", alt: "" },
+            { src: "/assets/img/hero.jpg", alt: "" },
+            { src: "/assets/img/young_grad.jpg", alt: "" },
+            { src: "/assets/img/grieving.jpg", alt: "" },
+          ]}
+          className="grayscale contrast-125"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-soro-deep via-soro-deep/80 to-soro-deep/20" />
+        <div className="absolute inset-0 bg-gradient-to-b from-soro-deep/90 via-transparent to-transparent h-32" />
+        <div className="absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-soro-deep to-transparent" />
+        <div className="absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-soro-deep to-transparent hidden md:block" />
+        <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-soro-deep to-transparent hidden md:block" />
+      </div>
+
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="w-full max-w-sm"
+        className="relative z-10 w-full max-w-sm"
       >
         {/* Logo */}
         <div className="text-center mb-8">

@@ -15,6 +15,10 @@ import { useCheckinStore } from '@/stores/checkinStore'
 import { useAuthStore } from '@/stores/authStore'
 import { getTodayAnchor, getMoodInsights, getJournalEntries, getReflections, getDebts, getGoals } from '@/lib/api'
 import { staggerContainer, staggerItem } from '@/lib/motion'
+import checkinImg from '@/assets/image/checkin.jpg'
+import journalImg from '@/assets/image/journal.jpg'
+import insightsImg from '@/assets/image/insights.jpg'
+import anchorImg from '@/assets/image/anchor.jpg'
 
 const quickActions = [
   {
@@ -24,6 +28,7 @@ const quickActions = [
     icon: PenLine,
     color: 'text-soro-ember',
     bg: 'bg-soro-ember/10',
+    image: checkinImg,
   },
   {
     to: '/app/journal',
@@ -32,6 +37,7 @@ const quickActions = [
     icon: BookOpen,
     color: 'text-soro-gold',
     bg: 'bg-soro-gold/10',
+    image: journalImg,
   },
   {
     to: '/app/insights',
@@ -40,6 +46,7 @@ const quickActions = [
     icon: BarChart3,
     color: 'text-green-400',
     bg: 'bg-green-400/10',
+    image: insightsImg,
   },
   {
     to: '/app/anchor',
@@ -48,6 +55,7 @@ const quickActions = [
     icon: Anchor,
     color: 'text-soro-earth',
     bg: 'bg-soro-earth/10',
+    image: anchorImg,
   },
 ]
 
@@ -258,11 +266,11 @@ export default function Home() {
             transition={{ delay: 0.15, duration: 0.3 }}
             className="glass-card rounded-xl px-4 py-3"
           >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-soro-fade font-medium">7-day mood trend</span>
-              <Link to="/app/insights" className="text-[10px] text-soro-ember hover:underline">View insights</Link>
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xs text-soro-mist font-semibold">7-day mood trend</span>
+              <Link to="/app/insights" className="text-[10px] text-soro-ember hover:underline hover:text-orange-300 transition-colors">View insights</Link>
             </div>
-            <div className="flex items-end gap-1.5 h-8">
+            <div className="flex items-end gap-1.5 h-10">
               {moodTrendDays.slice(0, 7).map((day: any, i: number) => {
                 const color = MOOD_COLORS[day.mood_state] || '#6B7280'
                 const intensity = ['good', 'okay', 'mixed', 'managing', 'at_limit'].indexOf(day.mood_state)
@@ -270,17 +278,23 @@ export default function Home() {
                 return (
                   <div
                     key={i}
-                    className="relative flex-1 group"
+                    className="relative flex-1 group flex flex-col items-center gap-0.5"
                   >
+                    {/* Bar */}
                     <div
-                      className="w-full rounded-sm transition-all duration-200 group-hover:opacity-80"
+                      className="w-full rounded-sm transition-all duration-200 group-hover:opacity-80 group-hover:scale-y-110 group-hover:origin-bottom"
                       style={{
                         height: `${height}%`,
                         backgroundColor: color,
-                        opacity: 0.7 + (1 - i * 0.06),
+                        opacity: Math.max(0.45, 1 - i * 0.09),
                       }}
                     />
-                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity text-[9px] text-soro-fade whitespace-nowrap bg-soro-surface px-1.5 py-0.5 rounded">
+                    {/* Day label */}
+                    <span className="text-[8px] text-soro-fade/80 mt-0.5">
+                      {new Date(day.date).toLocaleDateString('en-NG', { weekday: 'short' })}
+                    </span>
+                    {/* Tooltip on hover */}
+                    <div className="absolute -top-7 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-[10px] text-soro-mist whitespace-nowrap bg-soro-earth/80 backdrop-blur-sm px-2 py-1 rounded-md shadow-lg z-10 pointer-events-none">
                       {new Date(day.date).toLocaleDateString('en-NG', { weekday: 'short' })} — {day.mood_state.replace('_', ' ')}
                     </div>
                   </div>
@@ -300,25 +314,31 @@ export default function Home() {
             <Link
               to="/app/checkin"
               className="relative block rounded-2xl p-8 md:p-10 text-center overflow-hidden group border border-soro-ember/20 glow-ember"
-              style={{
-                background: 'linear-gradient(135deg, rgba(232,131,74,0.95), rgba(212,115,62,0.95))',
-              }}
             >
+              {/* Hero background image */}
+              <div
+                className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+                style={{ backgroundImage: 'url(/assets/img/hero.jpg)' }}
+              />
+              {/* Dark gradient overlay for readability */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/50 to-black/30" />
               {/* Shimmer */}
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/8 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
               {/* Pulsing sparkle icon */}
-              <motion.div
-                animate={{ scale: [1, 1.12, 1] }}
-                transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-              >
-                <Sparkles size={36} className="mx-auto mb-3 text-white/90" />
-              </motion.div>
-              <h2 className="text-xl md:text-2xl font-display font-bold text-white mb-2">
-                How are you feeling?
-              </h2>
-              <p className="text-white/70 text-sm">
-                Tap to check in — takes 30 seconds
-              </p>
+              <div className="relative z-10">
+                <motion.div
+                  animate={{ scale: [1, 1.12, 1] }}
+                  transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                >
+                  <Sparkles size={36} className="mx-auto mb-3 text-white/90" />
+                </motion.div>
+                <h2 className="text-xl md:text-2xl font-display font-bold text-white mb-2">
+                  How are you feeling?
+                </h2>
+                <p className="text-white/70 text-sm">
+                  Tap to check in — takes 30 seconds
+                </p>
+              </div>
             </Link>
           </motion.div>
         )}
@@ -449,11 +469,7 @@ export default function Home() {
           {insightsLoading ? (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="glass-card rounded-2xl p-4 animate-pulse">
-                  <div className="w-10 h-10 rounded-xl bg-soro-surface mb-3" />
-                  <div className="h-4 bg-soro-surface rounded w-3/4 mb-1" />
-                  <div className="h-3 bg-soro-surface rounded w-1/2" />
-                </div>
+                <div key={i} className="aspect-[3/4] glass-card rounded-2xl animate-pulse" />
               ))}
             </div>
           ) : (
@@ -467,19 +483,39 @@ export default function Home() {
                 <motion.div key={action.to} variants={staggerItem}>
                   <motion.div
                     whileHover={{ y: -4, scale: 1.02 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                   >
                     <Link
                       to={action.to}
-                      className="block glass-card rounded-2xl p-4 hover:border-soro-ember/20 transition-colors duration-200 group"
+                      className="relative block aspect-[3/4] rounded-2xl overflow-hidden group"
                     >
-                      <div className={`w-10 h-10 rounded-xl ${action.bg} flex items-center justify-center mb-3 group-hover:scale-110 transition-transform`}>
-                        <action.icon size={20} className={action.color} />
+                      {/* Background image */}
+                      <img
+                        src={action.image}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+
+                      {/* Bottom dark gradient overlay for text readability */}
+                      <div className="absolute inset-x-0 bottom-0 h-3/4 bg-gradient-to-t from-black/85 via-black/40 to-transparent" />
+
+                      {/* Small icon badge, top-left */}
+                      <div className={`absolute top-3 left-3 w-8 h-8 rounded-lg ${action.bg} backdrop-blur-md flex items-center justify-center`}>
+                        <action.icon size={16} className={action.color} />
                       </div>
-                      <h3 className="text-sm font-semibold text-soro-mist mb-0.5">
-                        {action.label}
-                      </h3>
-                      <p className="text-xs text-soro-fade">{action.desc}</p>
+
+                      {/* Bottom content */}
+                      <div className="absolute inset-x-0 bottom-0 p-3.5">
+                        <h3 className="text-sm font-semibold text-white mb-0.5">
+                          {action.label}
+                        </h3>
+                        <p className="text-[11px] text-white/60 mb-3">{action.desc}</p>
+
+                        <div className="flex items-center justify-between rounded-full bg-white/10 backdrop-blur-sm px-3 py-1.5 group-hover:bg-white/20 transition-colors">
+                          <span className="text-[11px] font-medium text-white">Open</span>
+                          <ArrowRight size={12} className="text-white" />
+                        </div>
+                      </div>
                     </Link>
                   </motion.div>
                 </motion.div>

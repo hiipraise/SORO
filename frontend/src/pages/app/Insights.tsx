@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect } from "react";
 import {
   BarChart3,
   TrendingUp,
@@ -6,7 +6,7 @@ import {
   Wallet,
   Calendar,
   RefreshCw,
-} from 'lucide-react'
+} from "lucide-react";
 import {
   XAxis,
   YAxis,
@@ -17,140 +17,149 @@ import {
   AreaChart,
   BarChart,
   Bar,
-} from 'recharts'
-import { useQuery } from '@tanstack/react-query'
-import PageTransition from '@/components/layout/PageTransition'
-import Button from '@/components/shared/Button'
-import Card from '@/components/shared/Card'
-import EmptyState from '@/components/shared/EmptyState'
-import AdSlot from '@/components/ui/AdSlot'
-import CheckinHeatmap from '@/components/ui/CheckinHeatmap'
-import { useCheckinStore, MOOD_LABELS } from '@/stores/checkinStore'
-import { getMoodInsights } from '@/lib/api'
-import { staggerContainer, staggerItem } from '@/lib/motion'
-import { motion } from 'framer-motion'
-
+} from "recharts";
+import { useQuery } from "@tanstack/react-query";
+import PageTransition from "@/components/layout/PageTransition";
+import Button from "@/components/shared/Button";
+import Card from "@/components/shared/Card";
+import EmptyState from "@/components/shared/EmptyState";
+import AdSlot from "@/components/ui/AdSlot";
+import CheckinHeatmap from "@/components/ui/CheckinHeatmap";
+import { useCheckinStore, MOOD_LABELS } from "@/stores/checkinStore";
+import { getMoodInsights } from "@/lib/api";
+import { staggerContainer, staggerItem } from "@/lib/motion";
+import { motion } from "framer-motion";
 
 function buildDayLabels(days: number): string[] {
-  const labels: string[] = []
+  const labels: string[] = [];
   for (let i = 0; i < days; i++) {
-    const d = new Date()
-    d.setDate(d.getDate() - (days - 1 - i))
+    const d = new Date();
+    d.setDate(d.getDate() - (days - 1 - i));
     labels.push(
       days <= 7
-        ? d.toLocaleDateString('en-US', { weekday: 'short' })
-        : d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    )
+        ? d.toLocaleDateString("en-US", { weekday: "short" })
+        : d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+    );
   }
-  return labels
+  return labels;
 }
 
 function formatDateStr(date: Date): string {
-  return date.toISOString().split('T')[0]
+  return date.toISOString().split("T")[0];
 }
 
 interface MoodDataPoint {
-  date: string
-  mood_state: string
-  score: number
+  date: string;
+  mood_state: string;
+  score: number;
 }
 
 interface MoodStats {
-  total_checkins: number
-  average_score: number
-  streak: number
+  total_checkins: number;
+  average_score: number;
+  streak: number;
 }
 
 interface CorrelationData {
-  avg_mood_with_financial_stress: number
-  avg_mood_without_financial_stress: number
-  gap: number
-  financial_checkin_count: number
-  total_checkin_count: number
+  avg_mood_with_financial_stress: number;
+  avg_mood_without_financial_stress: number;
+  gap: number;
+  financial_checkin_count: number;
+  total_checkin_count: number;
 }
 
 interface DebtStats {
-  total_debt: number
-  total_paid: number
-  remaining: number
-  cleared_count: number
-  active_count: number
+  total_debt: number;
+  total_paid: number;
+  remaining: number;
+  cleared_count: number;
+  active_count: number;
 }
 
 export default function Insights() {
-  const { checkinHistory } = useCheckinStore()
-  const [timeRange, setTimeRange] = useState<'week' | 'month'>('week')
-  const [correlation, setCorrelation] = useState<CorrelationData | null>(null)
-  const [debtStats, setDebtStats] = useState<DebtStats | null>(null)
-  const [financeLoading, setFinanceLoading] = useState(true)
+  const { checkinHistory } = useCheckinStore();
+  const [timeRange, setTimeRange] = useState<"week" | "month">("week");
+  const [correlation, setCorrelation] = useState<CorrelationData | null>(null);
+  const [debtStats, setDebtStats] = useState<DebtStats | null>(null);
+  const [financeLoading, setFinanceLoading] = useState(true);
 
   // Fetch mood insights from server
-  const { data: moodResponse, isLoading: moodLoading, isError: moodError, refetch: moodRefetch } = useQuery({
-    queryKey: ['mood-insights'],
+  const {
+    data: moodResponse,
+    isLoading: moodLoading,
+    isError: moodError,
+    refetch: moodRefetch,
+  } = useQuery({
+    queryKey: ["mood-insights"],
     queryFn: getMoodInsights,
-  })
+  });
 
-  const anyMoodResponse = moodResponse as any
-  const moodData: MoodDataPoint[] = anyMoodResponse?.data ?? []
-  const moodStats: MoodStats | null = anyMoodResponse?.stats ?? null
+  const anyMoodResponse = moodResponse as any;
+  const moodData: MoodDataPoint[] = anyMoodResponse?.data ?? [];
+  const moodStats: MoodStats | null = anyMoodResponse?.stats ?? null;
 
   // Fetch finance insights independently
   const { data: financeData } = useQuery({
-    queryKey: ['finance-insights'],
+    queryKey: ["finance-insights"],
     queryFn: async () => {
-      const { api } = await import('@/lib/api')
-      return api('/insights/finance') as any
+      const { api } = await import("@/lib/api");
+      return api("/insights/finance") as any;
     },
-    enabled: !!moodStats && ((moodStats.streak ?? 0) > 0 || checkinHistory.length > 0),
-  })
+    enabled:
+      !!moodStats && ((moodStats.streak ?? 0) > 0 || checkinHistory.length > 0),
+  });
 
   useEffect(() => {
     if (financeData) {
       if (financeData.mood_correlation) {
-        setCorrelation(financeData.mood_correlation)
+        setCorrelation(financeData.mood_correlation);
       }
       if (financeData.debt_stats) {
-        setDebtStats(financeData.debt_stats)
+        setDebtStats(financeData.debt_stats);
       }
-      setFinanceLoading(false)
+      setFinanceLoading(false);
     } else if (moodStats && !financeData) {
-      const hasAnyData = (moodStats.streak ?? 0) > 0 || checkinHistory.length > 0
+      const hasAnyData =
+        (moodStats.streak ?? 0) > 0 || checkinHistory.length > 0;
       if (!hasAnyData) {
-        setFinanceLoading(false)
+        setFinanceLoading(false);
       }
     }
-  }, [financeData, moodStats, checkinHistory.length])
+  }, [financeData, moodStats, checkinHistory.length]);
 
   // Build chart data from server mood data
-  const windowDays = timeRange === 'month' ? 30 : 7
-  const dayLabels = buildDayLabels(windowDays)
+  const windowDays = timeRange === "month" ? 30 : 7;
+  const dayLabels = buildDayLabels(windowDays);
   const chartData = dayLabels.map((label, i) => {
-    const date = new Date()
-    date.setDate(date.getDate() - (windowDays - 1 - i))
-    const dateStr = formatDateStr(date)
-    const dp = moodData.find((d) => d.date.startsWith(dateStr))
+    const date = new Date();
+    date.setDate(date.getDate() - (windowDays - 1 - i));
+    const dateStr = formatDateStr(date);
+    const dp = moodData.find((d) => d.date.startsWith(dateStr));
 
     return {
       day: label,
       score: dp ? dp.score : null,
-      label: dp ? (MOOD_LABELS[dp.mood_state as keyof typeof MOOD_LABELS] ?? dp.mood_state.replace('_', ' ')) : 'No check-in',
-    }
-  })
+      label: dp
+        ? (MOOD_LABELS[dp.mood_state as keyof typeof MOOD_LABELS] ??
+          dp.mood_state.replace("_", " "))
+        : "No check-in",
+    };
+  });
 
-  const hasData = chartData.some((d) => d.score !== null)
+  const hasData = chartData.some((d) => d.score !== null);
 
   // Stats from server
-  const totalCheckins = moodStats?.total_checkins ?? checkinHistory.length
-  const streak = moodStats?.streak ?? 0
-  const averageMood = moodStats?.average_score ?? 0
+  const totalCheckins = moodStats?.total_checkins ?? checkinHistory.length;
+  const streak = moodStats?.streak ?? 0;
+  const averageMood = moodStats?.average_score ?? 0;
 
   const trendDirection =
     chartData.length >= 2 &&
     (chartData[chartData.length - 1].score || 0) >= (chartData[0].score || 0)
-      ? 'up'
+      ? "up"
       : chartData.length >= 2
-        ? 'down'
-        : 'neutral'
+        ? "down"
+        : "neutral";
 
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
@@ -158,13 +167,13 @@ export default function Insights() {
         <div className="glass-card rounded-xl px-4 py-3 border-soro-earth/20">
           <p className="text-xs text-soro-fade">{label}</p>
           <p className="text-sm font-semibold text-soro-mist mt-1">
-            {payload[0].value ? `Level ${payload[0].value}/5` : 'No data'}
+            {payload[0].value ? `Level ${payload[0].value}/5` : "No data"}
           </p>
         </div>
-      )
+      );
     }
-    return null
-  }
+    return null;
+  };
 
   return (
     <PageTransition>
@@ -181,11 +190,10 @@ export default function Insights() {
 
         {/* Stats cards */}
         {moodLoading ? (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[1, 2, 3].map((i) => (
-              <Card key={i} padding="sm" className="animate-pulse text-center">
-                <div className="h-3 bg-soro-surface rounded w-12 mx-auto mb-2" />
-                <div className="h-8 bg-soro-surface rounded w-16 mx-auto" />
+              <Card key={i} padding="lg" className="animate-pulse h-40">
+                <div />
               </Card>
             ))}
           </div>
@@ -211,33 +219,129 @@ export default function Insights() {
             variants={staggerContainer}
             initial="initial"
             animate="animate"
-            className="grid grid-cols-3 gap-3"
+            className="grid grid-cols-1 sm:grid-cols-3 gap-4"
           >
+            {/* Check-ins */}
             <motion.div variants={staggerItem}>
-              <Card padding="sm" className="text-center">
-                <p className="text-xs text-soro-fade mb-1">Check-ins</p>
-                <p className="text-2xl font-display font-bold text-soro-mist">
-                  {totalCheckins}
-                </p>
-              </Card>
+              <div className="relative overflow-hidden rounded-3xl border border-soro-earth/10 bg-gradient-to-br from-soro-ember/15 via-soro-deep to-soro-deep p-6 min-h-[170px] flex flex-col justify-between">
+                {/* Dotted grid texture */}
+                <div
+                  className="absolute inset-0 opacity-[0.15] pointer-events-none"
+                  style={{
+                    backgroundImage:
+                      "radial-gradient(rgba(232,131,74,0.5) 1px, transparent 1px)",
+                    backgroundSize: "14px 14px",
+                  }}
+                />
+                {/* Corner icon accent, top-left */}
+                <BarChart3
+                  size={72}
+                  strokeWidth={1}
+                  className="absolute -top-3 -left-3 text-soro-ember/25 rotate-[-8deg]"
+                />
+                {/* Corner icon accent, bottom-right (smaller, mirrored) */}
+                <BarChart3
+                  size={40}
+                  strokeWidth={1}
+                  className="absolute bottom-3 right-3 text-soro-ember/20 rotate-[12deg]"
+                />
+
+                <div className="relative z-10">
+                  <p className="text-4xl font-display font-bold text-soro-mist">
+                    {totalCheckins}
+                  </p>
+                </div>
+                <div className="relative z-10">
+                  <p className="text-sm italic text-soro-ember font-medium mb-1">
+                    Check-ins
+                  </p>
+                  <p className="text-xs text-soro-fade leading-relaxed">
+                    Total times you've shown up to track how you're doing.
+                  </p>
+                </div>
+              </div>
             </motion.div>
+
+            {/* Streak */}
             <motion.div variants={staggerItem}>
-              <Card padding="sm" className="text-center">
-                <p className="text-xs text-soro-fade mb-1">Streak</p>
-                <p className="text-2xl font-display font-bold text-soro-gold">
-                  {streak}
-                </p>
-                <p className="text-[10px] text-soro-fade/60">days</p>
-              </Card>
+              <div className="relative overflow-hidden rounded-3xl border border-soro-earth/10 bg-gradient-to-br from-soro-gold/15 via-soro-deep to-soro-deep p-6 min-h-[170px] flex flex-col justify-between">
+                <div
+                  className="absolute inset-0 opacity-[0.15] pointer-events-none"
+                  style={{
+                    backgroundImage:
+                      "radial-gradient(rgba(245,200,66,0.5) 1px, transparent 1px)",
+                    backgroundSize: "14px 14px",
+                  }}
+                />
+                <Calendar
+                  size={72}
+                  strokeWidth={1}
+                  className="absolute -top-3 -left-3 text-soro-gold/25 rotate-[-8deg]"
+                />
+                <Calendar
+                  size={40}
+                  strokeWidth={1}
+                  className="absolute bottom-3 right-3 text-soro-gold/20 rotate-[12deg]"
+                />
+
+                <div className="relative z-10">
+                  <p className="text-4xl font-display font-bold text-soro-gold">
+                    {streak}
+                    <span className="text-base font-normal text-soro-fade/60 ml-1">
+                      days
+                    </span>
+                  </p>
+                </div>
+                <div className="relative z-10">
+                  <p className="text-sm italic text-soro-gold font-medium mb-1">
+                    Streak
+                  </p>
+                  <p className="text-xs text-soro-fade leading-relaxed">
+                    Consecutive days you've kept your check-in going.
+                  </p>
+                </div>
+              </div>
             </motion.div>
+
+            {/* Avg mood */}
             <motion.div variants={staggerItem}>
-              <Card padding="sm" className="text-center">
-                <p className="text-xs text-soro-fade mb-1">Avg mood</p>
-                <p className="text-2xl font-display font-bold text-soro-mist">
-                  {averageMood > 0 ? averageMood : '—'}
-                </p>
-                <p className="text-[10px] text-soro-fade/60">/ 5</p>
-              </Card>
+              <div className="relative overflow-hidden rounded-3xl border border-soro-earth/10 bg-gradient-to-br from-green-500/15 via-soro-deep to-soro-deep p-6 min-h-[170px] flex flex-col justify-between">
+                <div
+                  className="absolute inset-0 opacity-[0.15] pointer-events-none"
+                  style={{
+                    backgroundImage:
+                      "radial-gradient(rgba(74,222,128,0.5) 1px, transparent 1px)",
+                    backgroundSize: "14px 14px",
+                  }}
+                />
+                <TrendingUp
+                  size={72}
+                  strokeWidth={1}
+                  className="absolute -top-3 -left-3 text-green-400/25 rotate-[-8deg]"
+                />
+                <TrendingUp
+                  size={40}
+                  strokeWidth={1}
+                  className="absolute bottom-3 right-3 text-green-400/20 rotate-[12deg]"
+                />
+
+                <div className="relative z-10">
+                  <p className="text-4xl font-display font-bold text-soro-mist">
+                    {averageMood > 0 ? averageMood : "—"}
+                    <span className="text-base font-normal text-soro-fade/60 ml-1">
+                      / 5
+                    </span>
+                  </p>
+                </div>
+                <div className="relative z-10">
+                  <p className="text-sm italic text-green-400 font-medium mb-1">
+                    Avg mood
+                  </p>
+                  <p className="text-xs text-soro-fade leading-relaxed">
+                    Your average mood score across all check-ins.
+                  </p>
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -249,19 +353,19 @@ export default function Insights() {
               <TrendingUp
                 size={18}
                 className={
-                  trendDirection === 'up'
-                    ? 'text-green-400'
-                    : trendDirection === 'down'
-                      ? 'text-soro-danger'
-                      : 'text-soro-fade'
+                  trendDirection === "up"
+                    ? "text-green-400"
+                    : trendDirection === "down"
+                      ? "text-soro-danger"
+                      : "text-soro-fade"
                 }
               />
               <p className="text-sm text-soro-mist">
-                {trendDirection === 'up'
-                  ? 'Your mood is trending upward. Keep going.'
-                  : trendDirection === 'down'
-                    ? 'Things have been heavy. It\'s okay to reach out.'
-                    : 'Your mood has been steady.'}
+                {trendDirection === "up"
+                  ? "Your mood is trending upward. Keep going."
+                  : trendDirection === "down"
+                    ? "Things have been heavy. It's okay to reach out."
+                    : "Your mood has been steady."}
               </p>
             </div>
           </Card>
@@ -274,14 +378,14 @@ export default function Insights() {
               Mood over time
             </h2>
             <div className="flex items-center gap-1">
-              {(['week', 'month'] as const).map((range) => (
+              {(["week", "month"] as const).map((range) => (
                 <button
                   key={range}
                   onClick={() => setTimeRange(range)}
                   className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
                     timeRange === range
-                      ? 'bg-soro-ember/10 text-soro-ember'
-                      : 'text-soro-fade hover:text-soro-mist'
+                      ? "bg-soro-ember/10 text-soro-ember"
+                      : "text-soro-fade hover:text-soro-mist"
                   }`}
                 >
                   {range.charAt(0).toUpperCase() + range.slice(1)}
@@ -295,7 +399,13 @@ export default function Insights() {
               <ResponsiveContainer width="100%" height={250}>
                 <AreaChart data={chartData}>
                   <defs>
-                    <linearGradient id="moodGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient
+                      id="moodGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
                       <stop offset="0%" stopColor="#E8834A" stopOpacity={0.2} />
                       <stop offset="100%" stopColor="#E8834A" stopOpacity={0} />
                     </linearGradient>
@@ -309,15 +419,15 @@ export default function Insights() {
                     dataKey="day"
                     axisLine={false}
                     tickLine={false}
-                    interval={timeRange === 'month' ? 4 : 0}
-                    tick={{ fill: '#6B7280', fontSize: 12 }}
+                    interval={timeRange === "month" ? 4 : 0}
+                    tick={{ fill: "#6B7280", fontSize: 12 }}
                   />
                   <YAxis
                     domain={[0, 6]}
                     ticks={[1, 2, 3, 4, 5]}
                     axisLine={false}
                     tickLine={false}
-                    tick={{ fill: '#6B7280', fontSize: 12 }}
+                    tick={{ fill: "#6B7280", fontSize: 12 }}
                     tickFormatter={(v) => `${v}/5`}
                   />
                   <Tooltip content={<CustomTooltip />} />
@@ -327,8 +437,13 @@ export default function Insights() {
                     stroke="#E8834A"
                     strokeWidth={2}
                     fill="url(#moodGradient)"
-                    dot={{ fill: '#E8834A', r: 4, strokeWidth: 0 }}
-                    activeDot={{ fill: '#E8834A', r: 6, strokeWidth: 2, stroke: '#0D1117' }}
+                    dot={{ fill: "#E8834A", r: 4, strokeWidth: 0 }}
+                    activeDot={{
+                      fill: "#E8834A",
+                      r: 6,
+                      strokeWidth: 2,
+                      stroke: "#0D1117",
+                    }}
                     connectNulls
                   />
                 </AreaChart>
@@ -401,61 +516,80 @@ export default function Insights() {
                 animate={{ opacity: 1, y: 0 }}
               >
                 <Card>
-                <div className="flex items-center gap-2 mb-4">
-                  <Brain size={18} className="text-soro-ember" />
-                  <h3 className="text-sm font-semibold text-soro-mist">
-                    Mood & financial stress
-                  </h3>
-                </div>
+                  <div className="flex items-center gap-2 mb-4">
+                    <Brain size={18} className="text-soro-ember" />
+                    <h3 className="text-sm font-semibold text-soro-mist">
+                      Mood & financial stress
+                    </h3>
+                  </div>
 
-                {/* Comparison bar chart */}
-                <div className="mb-4">
-                  <ResponsiveContainer width="100%" height={120}>
-                    <BarChart
-                      data={[
-                        {
-                          name: 'With financial stress',
-                          value: correlation.avg_mood_with_financial_stress,
-                          fill: '#C0392B',
-                        },
-                        {
-                          name: 'Without financial stress',
-                          value: correlation.avg_mood_without_financial_stress,
-                          fill: '#2E8B57',
-                        },
-                      ]}
-                      layout="vertical"
-                    >
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(139, 94, 60, 0.1)" horizontal={false} />
-                      <XAxis type="number" domain={[0, 5]} tick={{ fill: '#6B7280', fontSize: 11 }} />
-                      <YAxis type="category" dataKey="name" tick={{ fill: '#E8EDF2', fontSize: 11 }} width={140} />
-                      <Tooltip
-                        content={({ active, payload }) =>
-                          active && payload && payload.length ? (
-                            <div className="glass-card rounded-xl px-3 py-2 border-soro-earth/20">
-                              <p className="text-xs text-soro-mist">{payload[0].name}</p>
-                              <p className="text-sm font-bold text-soro-mist">{Number(payload[0].value).toFixed(1)} / 5</p>
-                            </div>
-                          ) : null
-                        }
-                      />
-                      <Bar dataKey="value" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+                  {/* Comparison bar chart */}
+                  <div className="mb-4">
+                    <ResponsiveContainer width="100%" height={120}>
+                      <BarChart
+                        data={[
+                          {
+                            name: "With financial stress",
+                            value: correlation.avg_mood_with_financial_stress,
+                            fill: "#C0392B",
+                          },
+                          {
+                            name: "Without financial stress",
+                            value:
+                              correlation.avg_mood_without_financial_stress,
+                            fill: "#2E8B57",
+                          },
+                        ]}
+                        layout="vertical"
+                      >
+                        <CartesianGrid
+                          strokeDasharray="3 3"
+                          stroke="rgba(139, 94, 60, 0.1)"
+                          horizontal={false}
+                        />
+                        <XAxis
+                          type="number"
+                          domain={[0, 5]}
+                          tick={{ fill: "#6B7280", fontSize: 11 }}
+                        />
+                        <YAxis
+                          type="category"
+                          dataKey="name"
+                          tick={{ fill: "#E8EDF2", fontSize: 11 }}
+                          width={140}
+                        />
+                        <Tooltip
+                          content={({ active, payload }) =>
+                            active && payload && payload.length ? (
+                              <div className="glass-card rounded-xl px-3 py-2 border-soro-earth/20">
+                                <p className="text-xs text-soro-mist">
+                                  {payload[0].name}
+                                </p>
+                                <p className="text-sm font-bold text-soro-mist">
+                                  {Number(payload[0].value).toFixed(1)} / 5
+                                </p>
+                              </div>
+                            ) : null
+                          }
+                        />
+                        <Bar dataKey="value" radius={[0, 4, 4, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
 
-                <p className="text-sm text-soro-fade leading-relaxed">
-                  {correlation.gap > 0.5
-                    ? 'Your moods tend to be lower on days when you\'re dealing with financial stress. This is normal — and you\'re not alone in it.'
-                    : correlation.gap > 0
-                      ? 'There\'s a slight difference in your mood around financial topics. Keep tracking — patterns take time to show.'
-                      : 'Your mood stays consistent even around financial topics. That\'s real resilience.'}
-                </p>
+                  <p className="text-sm text-soro-fade leading-relaxed">
+                    {correlation.gap > 0.5
+                      ? "Your moods tend to be lower on days when you're dealing with financial stress. This is normal — and you're not alone in it."
+                      : correlation.gap > 0
+                        ? "There's a slight difference in your mood around financial topics. Keep tracking — patterns take time to show."
+                        : "Your mood stays consistent even around financial topics. That's real resilience."}
+                  </p>
 
-                <p className="text-xs text-soro-fade/60 mt-3">
-                  Based on {correlation.financial_checkin_count} check-ins mentioning money or debt
-                  out of {correlation.total_checkin_count} total check-ins.
-                </p>
+                  <p className="text-xs text-soro-fade/60 mt-3">
+                    Based on {correlation.financial_checkin_count} check-ins
+                    mentioning money or debt out of{" "}
+                    {correlation.total_checkin_count} total check-ins.
+                  </p>
                 </Card>
               </motion.div>
             )}
@@ -465,7 +599,8 @@ export default function Insights() {
               <Card padding="lg" className="text-center">
                 <Wallet size={24} className="text-soro-fade/30 mx-auto mb-2" />
                 <p className="text-sm text-soro-fade">
-                  Track debts and goals to see how your finances affect your mood.
+                  Track debts and goals to see how your finances affect your
+                  mood.
                 </p>
               </Card>
             )}
@@ -487,11 +622,11 @@ export default function Insights() {
                 </h3>
               </div>
               <p className="text-sm text-soro-fade leading-relaxed">
-                {trendDirection === 'up'
-                  ? 'Your week has been trending upward. Notice what\'s been helping — the small things matter.'
+                {trendDirection === "up"
+                  ? "Your week has been trending upward. Notice what's been helping — the small things matter."
                   : correlation && correlation.gap > 0.5
-                    ? 'Your lowest moods often follow financial stress entries. Addressing one may help the other.'
-                    : 'Keep showing up. Every check-in is a step forward, even on the hard days.'}
+                    ? "Your lowest moods often follow financial stress entries. Addressing one may help the other."
+                    : "Keep showing up. Every check-in is a step forward, even on the hard days."}
               </p>
             </Card>
           </motion.div>
@@ -501,5 +636,5 @@ export default function Insights() {
         <AdSlot format="rectangle" className="hidden md:flex" />
       </div>
     </PageTransition>
-  )
+  );
 }
