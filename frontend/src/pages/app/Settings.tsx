@@ -18,7 +18,6 @@ import Card from "@/components/shared/Card";
 import Modal from "@/components/shared/Modal";
 import { useAuthStore } from "@/stores/authStore";
 import { useToastStore } from "@/components/shared/Toast";
-import { useNavigate } from "react-router-dom";
 import {
   logout,
   updateSettings,
@@ -35,7 +34,6 @@ import { staggerItem } from "@/lib/motion";
 
 export default function Settings() {
   const { user, authMode, logout: storeLogout, setUser } = useAuthStore();
-  const navigate = useNavigate();
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showClaimModal, setShowClaimModal] = useState(false);
