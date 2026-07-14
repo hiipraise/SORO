@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     app_name: str = "SORO API"
     app_version: str = "0.1.0"
     debug: bool = False
-    cors_origins: str = "http://localhost:3000,http://localhost:5173"
+    cors_origins: str = "http://localhost:3000,http://localhost:5173,https://soro.pxxl.click,https://soro.axiomcv.site"
 
     # MongoDB
     mongo_uri: str = "mongodb://localhost:27017/soro"

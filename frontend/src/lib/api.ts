@@ -1,6 +1,13 @@
-const API_BASE = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/api`
-  : '/api'
+const DEFAULT_API_ORIGIN = 'https://soro-qk1e.onrender.com'
+
+function getApiBase(): string {
+  const configuredOrigin = import.meta.env.VITE_API_URL?.trim()
+  const origin = configuredOrigin || (import.meta.env.PROD ? DEFAULT_API_ORIGIN : '')
+
+  return origin ? `${origin.replace(/\/+$/, '')}/api` : '/api'
+}
+
+const API_BASE = getApiBase()
 
 interface ApiOptions extends RequestInit {
   params?: Record<string, string>
