@@ -145,8 +145,6 @@ export default function Home() {
     queryKey: ['journal-entries'],
     queryFn: () => getJournalEntries(0, 20),
   })
-  const entriesData = entriesPage?.items
-
   // Fetch latest reflection
   const { data: reflectionsData, isLoading: reflectionLoading } = useQuery({
     queryKey: ['reflections'],

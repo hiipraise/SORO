@@ -23,14 +23,6 @@ interface JournalEntryData {
   updated_at: string
 }
 
-interface PaginatedResponse<T> {
-  items: T[]
-  total: number
-  skip: number
-  limit: number
-  has_more: boolean
-}
-
 function getRelativeTime(dateStr: string): string {
   const now = Date.now()
   const date = new Date(dateStr).getTime()

@@ -32,15 +32,18 @@ interface GoalData {
 }
 
 export default function FinanceDashboard() {
-  const { data: debts = [], isLoading: debtsLoading } = useQuery<DebtData[]>({
+  const { data: debtsPage, isLoading: debtsLoading } = useQuery({
     queryKey: ['debts'],
-    queryFn: getDebts as () => Promise<DebtData[]>,
+    queryFn: () => getDebts(),
   })
 
-  const { data: goals = [], isLoading: goalsLoading } = useQuery<GoalData[]>({
+  const { data: goalsPage, isLoading: goalsLoading } = useQuery({
     queryKey: ['goals'],
-    queryFn: getGoals as () => Promise<GoalData[]>,
+    queryFn: () => getGoals(),
   })
+
+  const debts = (debtsPage?.items ?? []) as DebtData[]
+  const goals = (goalsPage?.items ?? []) as GoalData[]
 
   const isLoading = debtsLoading || goalsLoading
   const totalDebt = debts.reduce((sum, d) => sum + (d.amount - d.amount_paid), 0)
