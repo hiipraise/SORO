@@ -155,9 +155,18 @@ export async function getReflections() {
 
 // ─── Journal API ───
 
-export async function getJournalEntries(skip = 0, limit = 20) {
+function normalizePagination(skip: unknown, limit: unknown, defaultLimit: number) {
+  return {
+    skip: typeof skip === 'number' ? skip : 0,
+    limit: typeof limit === 'number' ? limit : defaultLimit,
+  }
+}
+
+export async function getJournalEntries(skip: unknown = 0, limit: unknown = 20) {
+  const page = normalizePagination(skip, limit, 20)
+
   return api<{ items: any[]; total: number; skip: number; limit: number; has_more: boolean }>(
-    `/journal/?skip=${skip}&limit=${limit}`,
+    `/journal/?skip=${page.skip}&limit=${page.limit}`,
   )
 }
 
@@ -202,9 +211,11 @@ export async function getAnchorArchive() {
 
 // ─── Finance API ───
 
-export async function getDebts(skip = 0, limit = 100) {
+export async function getDebts(skip: unknown = 0, limit: unknown = 100) {
+  const page = normalizePagination(skip, limit, 100)
+
   return api<{ items: any[]; total: number; skip: number; limit: number; has_more: boolean }>(
-    `/finance/debts/?skip=${skip}&limit=${limit}`,
+    `/finance/debts/?skip=${page.skip}&limit=${page.limit}`,
   )
 }
 
@@ -249,9 +260,11 @@ export async function payDebt(debtId: string, amount: number) {
   })
 }
 
-export async function getGoals(skip = 0, limit = 100) {
+export async function getGoals(skip: unknown = 0, limit: unknown = 100) {
+  const page = normalizePagination(skip, limit, 100)
+
   return api<{ items: any[]; total: number; skip: number; limit: number; has_more: boolean }>(
-    `/finance/goals/?skip=${skip}&limit=${limit}`,
+    `/finance/goals/?skip=${page.skip}&limit=${page.limit}`,
   )
 }
 
