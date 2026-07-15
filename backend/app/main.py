@@ -84,6 +84,24 @@ app.include_router(settings_router.router, prefix="/api")
 app.include_router(finance.router, prefix="/api")
 
 
+@app.get("/")
+@limiter.limit("30/minute")
+async def root(request: Request):
+    """Root endpoint — returns API metadata."""
+    return {
+        "app": cfg.app_name,
+        "version": cfg.app_version,
+        "docs": "/docs",
+        "health": "/health",
+    }
+
+
+@app.get("/health")
+@limiter.limit("30/minute")
+async def health_check(request: Request):
+    return {"status": "ok", "version": cfg.app_version}
+
+
 
 @app.get("/health")
 @limiter.limit("30/minute")
