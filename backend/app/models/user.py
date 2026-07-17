@@ -20,7 +20,12 @@ class User(Document):
     class Settings:
         name = "users"
         indexes = [
-            IndexModel([("email", ASCENDING)], unique=True, name="email_unique_idx"),
+            IndexModel(
+                [("email", ASCENDING)],
+                unique=True,
+                name="email_unique_idx",
+                partialFilterExpression={"email": {"$type": "string"}},
+            ),
             "session_token",
         ]
 
