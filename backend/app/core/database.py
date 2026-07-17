@@ -30,9 +30,21 @@ DOCUMENT_MODELS = [
 ]
 
 
+async def ensure_user_indexes(database):
+    """Ensure legacy user indexes do not block anonymous account creation."""
+    users = database[User.Settings.name]
+    indexes = await users.index_information()
+    email_index = indexes.get("email_unique_idx")
+
+    if email_index and not email_index.get("partialFilterExpression"):
+        await users.drop_index("email_unique_idx")
+
+
 async def init_db():
     client = AsyncIOMotorClient(settings.mongo_uri)
     database = client.get_database(settings.database_name)
+
+    await ensure_user_indexes(database)
 
     await init_beanie(
         database=database,
